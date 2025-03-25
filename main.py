@@ -8,6 +8,12 @@ from handlers import user_handlers
 
 from config import BOT_TOKEN
 
+import os
+
+print("Current working directory:", os.getcwd())
+print("Files in current directory:", os.listdir("."))
+
+
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)

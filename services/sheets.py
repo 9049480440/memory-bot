@@ -11,7 +11,7 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# Читаем содержимое JSON из переменной окружения
+# Аутентификация с использованием переменной окружения
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not creds_json:
     raise ValueError("GOOGLE_CREDENTIALS_JSON is not set or is empty.")
@@ -41,3 +41,23 @@ def add_or_update_user(user):
             '0'
         ]
         sheet.append_row(new_row)
+
+# Новая функция для сохранения заявки
+def submit_application(user, date_text, location, monument_name):
+    try:
+        # Если существует отдельный лист для заявок
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+    except Exception:
+        # Если лист "Заявки" не найден, используем лист "Активность"
+        sheet_app = sheet
+
+    new_row = [
+        str(user.id),
+        user.username or "",
+        user.full_name,
+        date_text,
+        location,
+        monument_name,
+        "=TODAY()"
+    ]
+    sheet_app.append_row(new_row)

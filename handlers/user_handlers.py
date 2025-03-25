@@ -2,7 +2,7 @@ from aiogram import types, Dispatcher
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from services.sheets import add_or_update_user
 from config import RULES_LINK
-import asyncio  # добавляем импорт asyncio
+import asyncio  # импортируем asyncio
 
 # Клавиатура
 def get_main_menu():
@@ -15,10 +15,9 @@ def get_main_menu():
 # Команда /start
 async def start_command(message: types.Message):
     user = message.from_user
-    # Запускаем синхронную функцию add_or_update_user в отдельном потоке, чтобы не блокировать event loop
     loop = asyncio.get_event_loop()
+    # Запускаем синхронную функцию add_or_update_user в отдельном потоке
     await loop.run_in_executor(None, add_or_update_user, user)
-    
     await message.answer(
         f"Привет, {user.first_name}!\nТы в конкурсе «Эстафета Победы». Выбирай, что хочешь сделать:",
         reply_markup=get_main_menu()
@@ -35,3 +34,8 @@ async def info_about_contest(message: types.Message):
         f"📄 Скачать полное положение: {RULES_LINK}"
     )
     await message.answer(text)
+
+# Функция для регистрации обработчиков
+def register_handlers(dp: Dispatcher):
+    dp.register_message_handler(start_command, commands=['start'])
+    dp.register_message_handler(info_about_contest, lambda msg: msg.text == "📌 Узнать о конкурсе")

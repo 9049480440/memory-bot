@@ -73,3 +73,6 @@ def register_application_handlers(dp: Dispatcher):
     dp.register_message_handler(process_date, state=ApplicationState.waiting_for_date)
     dp.register_message_handler(process_location, state=ApplicationState.waiting_for_location)
     dp.register_message_handler(process_name, state=ApplicationState.waiting_for_name)
+
+dp.register_message_handler(process_link, state=ApplicationState.waiting_for_link)
+

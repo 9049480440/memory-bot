@@ -1,10 +1,11 @@
 # config.py
 
-BOT_TOKEN = '7569888960:AAELmNsKxCPKxPilY1Ui6Ap09D_HmR0IwfY'
+import os
 
-# ID и название Google Таблицы
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 SPREADSHEET_ID = '1_G8dY5NMro0cari71Be9eT9htiVgRWJ3rcQXfZUI_F8'
 ACTIVITY_SHEET_NAME = 'Активность'
 
-# Ссылка на положение
 RULES_LINK = 'https://disk.yandex.ru/i/RFyutWLZU5VCeg'

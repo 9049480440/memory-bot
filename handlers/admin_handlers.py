@@ -62,7 +62,20 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
         await NewsState.waiting_for_news.set()
 
     elif callback.data == "admin_view_rating":
-        await callback.message.edit_text("📊 Функция рейтинга в разработке.", reply_markup=admin_menu_markup())
+        from services.sheets import get_top_users
+        top_users = get_top_users()
+
+        if not top_users:
+            await callback.message.edit_text("⚠️ Пока нет данных для рейтинга.", reply_markup=admin_menu_markup())
+            return
+
+        text = "🏆 Топ-10 участников:\n\n"
+        for i, user in enumerate(top_users, start=1):
+            name = f"@{user['username']}" if user["username"] else user["name"]
+            text += f"{i}. {name} — {user['count']} заявок, {user['total']} баллов\n"
+
+        await callback.message.edit_text(text, reply_markup=admin_menu_markup())
+
 
 # ✅ Подтвердить заявку
 async def handle_approve(callback: types.CallbackQuery, state: FSMContext):

@@ -1,16 +1,11 @@
-import os
 import json
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import time
-from config import SPREADSHEET_ID
+from oauth2client.service_account import ServiceAccountCredentials
+from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME  # <-- теперь оттуда берём ID
 
-
-# Настройки
+# Авторизация
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
-ACTIVITY_SHEET_NAME = os.getenv("SHEET_NAME", "Активность")
-
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not creds_json:
     raise ValueError("GOOGLE_CREDENTIALS_JSON is not set or is empty.")
@@ -18,16 +13,21 @@ creds_dict = json.loads(creds_json)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# Основной лист активности
-sheet = client.open_by_key(SPREADSHEET_ID).worksheet(ACTIVITY_SHEET_NAME)
+# Попытка открыть лист "Активность"
+try:
+    sheet = client.open_by_key(SPREADSHEET_ID).worksheet(ACTIVITY_SHEET_NAME)
+except Exception:
+    sheet = None  # если нет — не критично
 
-# Добавление нового пользователя
+# ✅ Добавление пользователя
 def add_or_update_user(user):
+    if sheet is None:
+        print("[WARNING] Лист 'Активность' не найден. Пропускаем сохранение пользователя.")
+        return
     try:
         user_id = str(user.id)
         all_users = sheet.get_all_values()
         user_ids = [row[0] for row in all_users[1:]]
-
         if user_id in user_ids:
             idx = user_ids.index(user_id) + 2
             sheet.update_cell(idx, 4, '=TODAY()')
@@ -46,33 +46,30 @@ def add_or_update_user(user):
     except Exception as e:
         print(f"[ERROR] Не удалось добавить пользователя {user.full_name} ({user.id}): {e}")
 
-# 🔹 Обновлённая функция: добавляет ссылку
-
+# ✅ Подать заявку
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
     except Exception:
-        sheet_app = sheet
+        print("[ERROR] Лист 'Заявки' не найден.")
+        return
 
-    # Генерация заявки_id
     submission_id = f"{user.id}_{int(time.time())}"
-
     new_row = [
         str(user.id),
         user.username or "",
         user.full_name,
         submission_id,
         link,
-        date_text,       # ответ_1
-        location,        # ответ_2
+        date_text,
+        location,
         "=TODAY()",
-        "",              # баллы
-        ""               # комментарий_админа
+        "",
+        ""
     ]
     sheet_app.append_row(new_row)
 
-
-# 🔹 Подсчёт баллов пользователя
+# ✅ Подсчёт баллов
 def get_user_scores(user_id: str):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -86,10 +83,10 @@ def get_user_scores(user_id: str):
     total_score = 0
 
     for row in user_rows:
-        link = row[3] if len(row) > 3 else ""
-        date = row[4] if len(row) > 4 else ""
-        location = row[5] if len(row) > 5 else ""
-        name = row[6] if len(row) > 6 else ""
+        link = row[4] if len(row) > 4 else ""
+        date = row[5] if len(row) > 5 else ""
+        location = row[6] if len(row) > 6 else ""
+        name = row[3] if len(row) > 3 else ""
         try:
             score = int(row[8]) if len(row) > 8 and row[8].isdigit() else 0
         except:

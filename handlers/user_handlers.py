@@ -2,13 +2,13 @@ from aiogram import types, Dispatcher
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from services.sheets import add_or_update_user
 from config import RULES_LINK
-import asyncio  # импортируем asyncio
+import asyncio
 
-# Клавиатура
 def get_main_menu():
     buttons = [
         [KeyboardButton("📌 Узнать о конкурсе")],
         [KeyboardButton("📨 Подать заявку")],
+        [KeyboardButton("⭐️ Мои баллы")]
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
@@ -35,7 +35,6 @@ async def info_about_contest(message: types.Message):
     )
     await message.answer(text)
 
-# Функция для регистрации обработчиков
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(start_command, commands=['start'])
     dp.register_message_handler(info_about_contest, lambda msg: msg.text == "📌 Узнать о конкурсе")

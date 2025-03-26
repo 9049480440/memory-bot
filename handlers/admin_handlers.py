@@ -20,7 +20,7 @@ def admin_menu_markup():
     )
     return markup
 
-# Обработчик команды /admin
+# Команда /admin (осталась на всякий случай)
 async def admin_start(message: types.Message, state: FSMContext):
     if is_admin(message.from_user.id):
         await state.finish()
@@ -28,6 +28,6 @@ async def admin_start(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ У вас нет доступа к этому разделу.")
 
-# Регистрация обработчиков
+# Регистрация
 def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_start, commands=["admin"], state="*")

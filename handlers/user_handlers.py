@@ -1,14 +1,15 @@
 from aiogram import types, Dispatcher
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from services.sheets import add_or_update_user
+from services.sheets import add_or_update_user, get_user_scores
 from config import RULES_LINK
 import asyncio
 
+# Клавиатура
 def get_main_menu():
     buttons = [
         [KeyboardButton("📌 Узнать о конкурсе")],
         [KeyboardButton("📨 Подать заявку")],
-        [KeyboardButton("⭐️ Мои баллы")]
+        [KeyboardButton("⭐️ Мои баллы")]  # <-- добавили кнопку
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
@@ -16,7 +17,6 @@ def get_main_menu():
 async def start_command(message: types.Message):
     user = message.from_user
     loop = asyncio.get_event_loop()
-    # Запускаем синхронную функцию add_or_update_user в отдельном потоке
     await loop.run_in_executor(None, add_or_update_user, user)
     await message.answer(
         f"Привет, {user.first_name}!\nТы в конкурсе «Эстафета Победы». Выбирай, что хочешь сделать:",
@@ -35,6 +35,22 @@ async def info_about_contest(message: types.Message):
     )
     await message.answer(text)
 
+# Обработка кнопки "⭐️ Мои баллы"
+async def show_user_scores(message: types.Message):
+    user_id = str(message.from_user.id)
+    loop = asyncio.get_event_loop()
+    results, total = await loop.run_in_executor(None, get_user_scores, user_id)
+
+    if not results:
+        await message.answer("У вас пока нет заявок.")
+        return
+
+    response = "\n\n".join(results)
+    response += f"\n\n🏁 Суммарно: {total} баллов"
+    await message.answer(response)
+
+# Регистрация обработчиков
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(start_command, commands=['start'])
     dp.register_message_handler(info_about_contest, lambda msg: msg.text == "📌 Узнать о конкурсе")
+    dp.register_message_handler(show_user_scores, lambda msg: msg.text == "⭐️ Мои баллы")  # <-- новый обработчик

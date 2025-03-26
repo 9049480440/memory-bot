@@ -49,13 +49,13 @@ def add_or_update_user(user):
     except Exception as e:
         print(f"[ERROR] Пользователь не добавлен: {e}")
 
-# ✅ Подача заявки
+# ✅ Подача заявки + возврат ID
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
     except Exception:
         print("[ERROR] Лист 'Заявки' не найден.")
-        return
+        return None
 
     submission_id = f"{user.id}_{int(time.time())}"
     submitted_at = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
@@ -69,10 +69,17 @@ def submit_application(user, date_text, location, monument_name, link):
         date_text,
         location,
         submitted_at,
-        "",
-        ""
+        "",  # баллы
+        ""   # комментарий
     ]
-    sheet_app.append_row(new_row)
+
+    try:
+        sheet_app.append_row(new_row)
+        return submission_id  # 👈 возвращаем ID заявки
+    except Exception as e:
+        print(f"[ERROR] Не удалось добавить заявку: {e}")
+        return None
+
 
 # ⭐️ Получение баллов пользователя
 def get_user_scores(user_id: str):

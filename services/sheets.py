@@ -149,3 +149,18 @@ def get_inactive_users(days=21):
             })
 
     return inactive
+
+# 📊 Получение статистики по заявкам
+def get_submission_stats():
+    try:
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+        rows = sheet_app.get_all_values()[1:]  # без заголовков
+    except Exception:
+        return 0, 0
+
+    user_ids = set()
+    for row in rows:
+        if len(row) >= 1:
+            user_ids.add(row[0])
+    return len(rows), len(user_ids)
+

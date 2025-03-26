@@ -208,3 +208,17 @@ async def send_score_notification(user_id: int, score: int):
         )
     except Exception as e:
         print(f"[ERROR] Не удалось отправить сообщение участнику {user_id}: {e}")
+
+# 📬 Получить список всех user_id, кто подавал заявки
+def get_all_user_ids():
+    try:
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+        rows = sheet_app.get_all_values()[1:]
+        user_ids = set()
+        for row in rows:
+            if len(row) >= 1 and row[0].isdigit():
+                user_ids.add(int(row[0]))
+        return list(user_ids)
+    except Exception as e:
+        print(f"[ERROR] get_all_user_ids: {e}")
+        return []

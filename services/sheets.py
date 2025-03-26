@@ -2,6 +2,7 @@ import os
 import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import time
 
 # Настройки
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -44,25 +45,30 @@ def add_or_update_user(user):
         print(f"[ERROR] Не удалось добавить пользователя {user.full_name} ({user.id}): {e}")
 
 # 🔹 Обновлённая функция: добавляет ссылку
+
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
     except Exception:
         sheet_app = sheet
 
+    # Генерация заявки_id
+    submission_id = f"{user.id}_{int(time.time())}"
+
     new_row = [
         str(user.id),
         user.username or "",
         user.full_name,
+        submission_id,
         link,
-        date_text,
-        location,
-        monument_name,
+        date_text,       # ответ_1
+        location,        # ответ_2
         "=TODAY()",
-        "0",  # Баллы по умолчанию
-        "на проверке"  # Статус
+        "",              # баллы
+        ""               # комментарий_админа
     ]
     sheet_app.append_row(new_row)
+
 
 # 🔹 Подсчёт баллов пользователя
 def get_user_scores(user_id: str):

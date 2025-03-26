@@ -3,6 +3,8 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import time
+from config import SPREADSHEET_ID
+
 
 # Настройки
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]

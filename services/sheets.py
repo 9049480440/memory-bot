@@ -1,3 +1,5 @@
+# sheets.py
+
 import os
 import json
 import gspread
@@ -6,6 +8,7 @@ import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
 
+# 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not creds_json:
@@ -14,11 +17,13 @@ creds_dict = json.loads(creds_json)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
+# 📄 Активность
 try:
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet(ACTIVITY_SHEET_NAME)
 except Exception:
     sheet = None
 
+# ➕ Добавление пользователя или обновление даты входа
 def add_or_update_user(user):
     if sheet is None:
         print("[WARNING] Лист 'Активность' не найден.")
@@ -44,6 +49,7 @@ def add_or_update_user(user):
     except Exception as e:
         print(f"[ERROR] Пользователь не добавлен: {e}")
 
+# ✅ Подача заявки
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -68,6 +74,7 @@ def submit_application(user, date_text, location, monument_name, link):
     ]
     sheet_app.append_row(new_row)
 
+# ⭐️ Получение баллов пользователя
 def get_user_scores(user_id: str):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -93,3 +100,52 @@ def get_user_scores(user_id: str):
         results.append(f"📍 {name} ({location}, {date}) — {score} баллов\n🔗 {link}")
 
     return results, total_score
+
+# 📬 Поиск неактивных участников
+def get_inactive_users(days=21):
+    try:
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+    except Exception:
+        print("[ERROR] Лист 'Заявки' не найден.")
+        return []
+
+    all_rows = sheet_app.get_all_values()[1:]
+    user_data = {}
+
+    for row in all_rows:
+        if len(row) < 8:
+            continue
+
+        user_id = row[0]
+        username = row[1]
+        full_name = row[2]
+        submitted_at_str = row[7]
+
+        try:
+            submitted_at = datetime.datetime.strptime(submitted_at_str.split(" ")[0], "%d.%m.%Y")
+        except:
+            continue
+
+        if user_id not in user_data or submitted_at > user_data[user_id]["last_submission"]:
+            user_data[user_id] = {
+                "user_id": int(user_id),
+                "username": username,
+                "full_name": full_name,
+                "last_submission": submitted_at
+            }
+
+    now = datetime.datetime.now()
+    deadline = datetime.datetime(2025, 11, 30)
+    inactive = []
+
+    for user in user_data.values():
+        days_since_submission = (now - user["last_submission"]).days
+        if days_since_submission >= days:
+            days_left = (deadline - now).days
+            inactive.append({
+                "user_id": user["user_id"],
+                "username": user["username"],
+                "days_left": days_left if days_left > 0 else 0
+            })
+
+    return inactive

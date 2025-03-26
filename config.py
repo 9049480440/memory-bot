@@ -10,5 +10,4 @@ ACTIVITY_SHEET_NAME = 'Активность'
 
 RULES_LINK = 'https://disk.yandex.ru/i/RFyutWLZU5VCeg'
 
-ADMIN_IDS = [824793207]  # ID администратора
-
+ADMIN_IDS = [824793207, 1568719982]

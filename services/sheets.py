@@ -2,11 +2,10 @@ import os
 import json
 import gspread
 import time
+import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
 
-
-# Авторизация
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 if not creds_json:
@@ -15,16 +14,14 @@ creds_dict = json.loads(creds_json)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-# Попытка открыть лист "Активность"
 try:
     sheet = client.open_by_key(SPREADSHEET_ID).worksheet(ACTIVITY_SHEET_NAME)
 except Exception:
-    sheet = None  # если нет — не критично
+    sheet = None
 
-# ✅ Добавление пользователя
 def add_or_update_user(user):
     if sheet is None:
-        print("[WARNING] Лист 'Активность' не найден. Пропускаем сохранение пользователя.")
+        print("[WARNING] Лист 'Активность' не найден.")
         return
     try:
         user_id = str(user.id)
@@ -44,11 +41,9 @@ def add_or_update_user(user):
                 '0'
             ]
             sheet.append_row(new_row)
-            print(f"[INFO] Новый пользователь добавлен: {user.full_name} ({user.id})")
     except Exception as e:
-        print(f"[ERROR] Не удалось добавить пользователя {user.full_name} ({user.id}): {e}")
+        print(f"[ERROR] Пользователь не добавлен: {e}")
 
-# ✅ Подать заявку
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -57,6 +52,8 @@ def submit_application(user, date_text, location, monument_name, link):
         return
 
     submission_id = f"{user.id}_{int(time.time())}"
+    submitted_at = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+
     new_row = [
         str(user.id),
         user.username or "",
@@ -65,13 +62,12 @@ def submit_application(user, date_text, location, monument_name, link):
         link,
         date_text,
         location,
-        "=TODAY()",
+        submitted_at,
         "",
         ""
     ]
     sheet_app.append_row(new_row)
 
-# ✅ Подсчёт баллов
 def get_user_scores(user_id: str):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")

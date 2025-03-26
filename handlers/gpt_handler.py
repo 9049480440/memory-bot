@@ -5,7 +5,6 @@ from config import OPENAI_API_KEY
 
 openai.api_key = OPENAI_API_KEY
 
-# Краткое содержание положения + правила оценки памятников
 rules_summary = """
 Ты — помощник по конкурсу «Эстафета Победы. От памятника к памяти». Конкурс проводится в городе Снежинске с 1 апреля по 30 ноября 2025 года. Участвуют только жители города Снежинска.
 
@@ -42,18 +41,5 @@ async def ask_gpt(message_text):
         )
         return response['choices'][0]['message']['content']
     except Exception as e:
-        return "Извините, я пока не могу ответить. Попробуйте позже."async def ask_gpt(message_text):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": rules_summary},
-                {"role": "user", "content": message_text}
-            ],
-            max_tokens=400
-        )
-        return response['choices'][0]['message']['content']
-    except Exception as e:
         print("GPT ERROR:", e)
         return "Извините, я пока не могу ответить. Попробуйте позже."
-

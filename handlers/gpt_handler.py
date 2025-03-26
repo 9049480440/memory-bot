@@ -2,6 +2,8 @@
 
 import openai
 from config import OPENAI_API_KEY
+import logging
+
 
 openai.api_key = OPENAI_API_KEY
 
@@ -41,5 +43,6 @@ async def ask_gpt(message_text):
         )
         return response['choices'][0]['message']['content']
     except Exception as e:
-        print("GPT ERROR:", e)
+        logging.error(f"GPT ERROR: {e}")
         return "Извините, я пока не могу ответить. Попробуйте позже."
+

@@ -6,13 +6,19 @@ import datetime
 
 from services.sheets import submit_application
 
+# Состояния
 class ApplicationState(StatesGroup):
     waiting_for_link = State()
     waiting_for_date = State()
     waiting_for_location = State()
     waiting_for_name = State()
 
+# Словарь для отслеживания незавершённых анкет
+incomplete_users = {}
+
 async def start_application(message: types.Message):
+    user_id = message.from_user.id
+    incomplete_users[user_id] = datetime.datetime.now()
     await message.answer("Пожалуйста, пришлите ссылку на пост с фотографией у памятника.")
     await ApplicationState.waiting_for_link.set()
 
@@ -64,12 +70,15 @@ async def process_name(message: types.Message, state: FSMContext):
 
     await message.answer("✅ Ваша заявка принята! Спасибо за участие.")
     await state.finish()
+    incomplete_users.pop(message.from_user.id, None)
 
-# Команда /cancel — отмена анкеты
+# Отмена анкеты
 async def cancel_application(message: types.Message, state: FSMContext):
     await state.finish()
+    incomplete_users.pop(message.from_user.id, None)
     await message.answer("Подача заявки отменена. Если захотите начать заново — нажмите «📨 Подать заявку».")
 
+# Регистрация
 def register_application_handlers(dp: Dispatcher):
     dp.register_message_handler(start_application, text="📨 Подать заявку", state="*")
     dp.register_message_handler(process_link, state=ApplicationState.waiting_for_link)

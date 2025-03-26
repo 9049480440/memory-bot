@@ -1,11 +1,10 @@
 # handlers/gpt_handler.py
 
-import openai
+from openai import OpenAI
 from config import OPENAI_API_KEY
 import logging
 
-
-openai.api_key = OPENAI_API_KEY
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 rules_summary = """
 Ты — помощник по конкурсу «Эстафета Победы. От памятника к памяти». Конкурс проводится в городе Снежинске с 1 апреля по 30 ноября 2025 года. Участвуют только жители города Снежинска.
@@ -33,7 +32,7 @@ rules_summary = """
 
 async def ask_gpt(message_text):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": rules_summary},
@@ -41,8 +40,7 @@ async def ask_gpt(message_text):
             ],
             max_tokens=400
         )
-        return response['choices'][0]['message']['content']
+        return response.choices[0].message.content
     except Exception as e:
         logging.error(f"GPT ERROR: {e}")
         return "Извините, я пока не могу ответить. Попробуйте позже."
-

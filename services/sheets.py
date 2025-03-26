@@ -164,3 +164,40 @@ def get_submission_stats():
             user_ids.add(row[0])
     return len(rows), len(user_ids)
 
+# ✅ Проставить баллы и уведомить участника
+def set_score_and_notify_user(submission_id: str, score: int):
+    try:
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+        rows = sheet_app.get_all_values()
+        headers = rows[0]
+        data = rows[1:]
+
+        # Ищем заявку по ID
+        for idx, row in enumerate(data, start=2):  # +2, потому что строка заголовков и индексация с 1
+            if len(row) >= 4 and row[3] == submission_id:
+                user_id = int(row[0])
+                sheet_app.update_cell(idx, 9, str(score))  # 9 = колонка баллов
+
+                # Уведомление
+                import asyncio
+                loop = asyncio.get_event_loop()
+                loop.create_task(send_score_notification(user_id, score))
+                return True
+
+        return False
+    except Exception as e:
+        print(f"[ERROR] Ошибка при выставлении баллов: {e}")
+        return False
+
+# 📬 Уведомление участнику
+async def send_score_notification(user_id: int, score: int):
+    from main import bot
+    try:
+        await bot.send_message(
+            user_id,
+            f"🎉 Ваша заявка подтверждена!\n"
+            f"Вам начислено {score} балл(ов).\n"
+            f"Поздравляем и желаем удачи — вы на пути к победе! 💪"
+        )
+    except Exception as e:
+        print(f"[ERROR] Не удалось отправить сообщение участнику {user_id}: {e}")

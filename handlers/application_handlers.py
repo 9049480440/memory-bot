@@ -1,3 +1,5 @@
+# application_handlers.py
+
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
@@ -6,6 +8,7 @@ import asyncio
 import datetime
 
 from services.sheets import submit_application
+from config import ADMIN_IDS
 
 # Состояния анкеты
 class ApplicationState(StatesGroup):
@@ -14,7 +17,7 @@ class ApplicationState(StatesGroup):
     waiting_for_location = State()
     waiting_for_name = State()
 
-# Временное хранилище для контроля незавершённых анкет
+# Временное хранилище
 incomplete_users = {}
 
 # Кнопка "Задать вопрос"
@@ -33,18 +36,9 @@ async def start_application(message: types.Message):
 # Обработка ссылки
 async def process_link(message: types.Message, state: FSMContext):
     text = message.text.strip()
-    if "?" in text or len(text.split()) > 10:
+    if "?" in text or len(text.split()) > 10 or not text.startswith("http"):
         await message.answer(
-            "Похоже, вы хотите задать вопрос или просто что-то пишете. "
-            "Если вы действительно хотите спросить — нажмите кнопку ниже 👇",
-            reply_markup=ask_question_markup()
-        )
-        return
-
-    if not (text.startswith("http://") or text.startswith("https://")):
-        await message.answer(
-            "Пожалуйста, пришлите только ссылку, без текста.\n"
-            "Если вы хотите задать вопрос — нажмите кнопку 👇",
+            "Похоже, вы хотите задать вопрос. Если да — нажмите кнопку 👇",
             reply_markup=ask_question_markup()
         )
         return
@@ -61,23 +55,17 @@ async def process_date(message: types.Message, state: FSMContext):
         await message.answer("Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ:")
         return
     await state.update_data(date=message.text)
-    await message.answer("Отлично! Теперь введите место съёмки (не более 100 символов):")
+    await message.answer("Отлично! Теперь введите место съёмки:")
     await ApplicationState.waiting_for_location.set()
 
 # Обработка места
 async def process_location(message: types.Message, state: FSMContext):
-    if len(message.text) > 100:
-        await message.answer("Слишком длинный текст. Введите место не более 100 символов:")
-        return
     await state.update_data(location=message.text)
-    await message.answer("Теперь введите название памятника или мероприятия (не более 100 символов):")
+    await message.answer("Теперь введите название памятника или мероприятия:")
     await ApplicationState.waiting_for_name.set()
 
 # Обработка названия и завершение
 async def process_name(message: types.Message, state: FSMContext):
-    if len(message.text) > 100:
-        await message.answer("Слишком длинный текст. Введите название не более 100 символов:")
-        return
     await state.update_data(name=message.text)
     data = await state.get_data()
 
@@ -86,25 +74,44 @@ async def process_name(message: types.Message, state: FSMContext):
     location = data.get("location")
     monument_name = data.get("name")
 
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, submit_application, message.from_user, date_text, location, monument_name, link)
+    # Сохраняем заявку и получаем ID
+    submission_id = submit_application(message.from_user, date_text, location, monument_name, link)
 
+    # Уведомление пользователю
     await message.answer("✅ Ваша заявка принята! Спасибо за участие.")
     await state.finish()
     incomplete_users.pop(message.from_user.id, None)
 
-# Обработка /cancel
+    # Уведомление админу
+    for admin_id in ADMIN_IDS:
+        try:
+            markup = InlineKeyboardMarkup()
+            markup.add(
+                InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_{submission_id}"),
+                InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_{submission_id}")
+            )
+            text = (
+                f"📥 Новая заявка:\n"
+                f"👤 {message.from_user.full_name}\n"
+                f"📍 {monument_name}\n"
+                f"📅 {date_text}, {location}\n"
+                f"🔗 {link}"
+            )
+            await message.bot.send_message(admin_id, text, reply_markup=markup)
+        except Exception as e:
+            print(f"[Ошибка при отправке админу] {e}")
+
+# Отмена анкеты
 async def cancel_application(message: types.Message, state: FSMContext):
     await state.finish()
     incomplete_users.pop(message.from_user.id, None)
     await message.answer("Подача заявки отменена. Если захотите начать заново — нажмите «📨 Подать заявку».")
 
-# 👉 Обработка нажатия на кнопку "Задать вопрос"
+# Кнопка GPT
 async def handle_callback_query(callback_query: types.CallbackQuery, state: FSMContext):
     await state.finish()
     incomplete_users.pop(callback_query.from_user.id, None)
     await callback_query.message.answer("Вы можете задать вопрос — я постараюсь помочь 🤖")
-    # GPT-обработчик сам подхватит следующее сообщение
 
 # Регистрация
 def register_application_handlers(dp: Dispatcher):

@@ -1,56 +1,40 @@
 from aiogram import types, Dispatcher
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.dispatcher import FSMContext
 from services.sheets import add_or_update_user, get_user_scores
-from config import RULES_LINK
-import asyncio
 
-# Клавиатура
-def get_main_menu():
-    buttons = [
-        [KeyboardButton("📌 Узнать о конкурсе")],
-        [KeyboardButton("📨 Подать заявку")],
-        [KeyboardButton("⭐️ Мои баллы")]  # <-- добавили кнопку
-    ]
-    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
-
-# Команда /start
-async def start_command(message: types.Message):
-    user = message.from_user
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, add_or_update_user, user)
+# 📌 Узнать о конкурсе
+async def info_about_competition(message: types.Message, state: FSMContext):
+    await state.finish()  # если анкета была — сбросить
     await message.answer(
-        f"Привет, {user.first_name}!\nТы в конкурсе «Эстафета Победы». Выбирай, что хочешь сделать:",
-        reply_markup=get_main_menu()
+        "📍 Конкурс приурочен к 80-летию Победы и Году Защитника Отечества.\n\n"
+        "Участвуйте, публикуйте посты у памятников, копите баллы и получайте призы!\n\n"
+        "📄 Подробнее: https://docs.google.com/document/d/your-link-here"
     )
 
-# Обработка кнопки "📌 Узнать о конкурсе"
-async def info_about_contest(message: types.Message):
-    text = (
-        "Конкурс «Эстафета Победы. От памятника к памяти» проходит с 1 апреля по 30 ноября 2025 года.\n\n"
-        "Участники публикуют фото или видео с памятниками и знаковыми местами, "
-        "используют хештег #ОтПамятникаКПамяти и подают заявку через этот бот.\n\n"
-        "Цель — сохранить память о защитниках Отечества и продвигать идеи патриотизма. "
-        "Баллы начисляются за каждый объект, а активные участники получают призы.\n\n"
-        f"📄 Скачать полное положение: {RULES_LINK}"
-    )
-    await message.answer(text)
-
-# Обработка кнопки "⭐️ Мои баллы"
-async def show_user_scores(message: types.Message):
+# ⭐️ Мои баллы
+async def show_user_scores(message: types.Message, state: FSMContext):
+    await state.finish()  # если анкета была — сбросить
     user_id = str(message.from_user.id)
-    loop = asyncio.get_event_loop()
-    results, total = await loop.run_in_executor(None, get_user_scores, user_id)
-
+    results, total = get_user_scores(user_id)
     if not results:
-        await message.answer("У вас пока нет заявок.")
-        return
+        await message.answer("У вас пока нет заявок. Подайте первую, нажав «📨 Подать заявку»!")
+    else:
+        await message.answer(f"Ваши заявки:\n\n" + "\n\n".join(results) + f"\n\n🌟 Всего баллов: {total}")
 
-    response = "\n\n".join(results)
-    response += f"\n\n🏁 Суммарно: {total} баллов"
-    await message.answer(response)
+# /start
+async def start(message: types.Message, state: FSMContext):
+    await state.finish()  # сброс состояния, если что-то висело
+    add_or_update_user(message.from_user)
 
-# Регистрация обработчиков
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.add("📌 Узнать о конкурсе")
+    keyboard.add("📨 Подать заявку")
+    keyboard.add("⭐️ Мои баллы")
+
+    await message.answer("Добро пожаловать! Выберите действие 👇", reply_markup=keyboard)
+
+# Регистрация
 def register_handlers(dp: Dispatcher):
-    dp.register_message_handler(start_command, commands=['start'])
-    dp.register_message_handler(info_about_contest, lambda msg: msg.text == "📌 Узнать о конкурсе")
-    dp.register_message_handler(show_user_scores, lambda msg: msg.text == "⭐️ Мои баллы")  # <-- новый обработчик
+    dp.register_message_handler(start, commands=["start"], state="*")
+    dp.register_message_handler(info_about_competition, text="📌 Узнать о конкурсе", state="*")
+    dp.register_message_handler(show_user_scores, text="⭐️ Мои баллы", state="*")

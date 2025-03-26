@@ -4,7 +4,12 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from config import ADMIN_IDS
-from services.sheets import get_submission_stats, set_score_and_notify_user, get_all_user_ids
+from services.sheets import (
+    get_submission_stats,
+    set_score_and_notify_user,
+    get_all_user_ids,
+    get_top_users,
+)
 
 # Состояния
 class ScoreState(StatesGroup):
@@ -13,14 +18,14 @@ class ScoreState(StatesGroup):
 class NewsState(StatesGroup):
     waiting_for_news = State()
 
-# Временное хранилище
+# Временное хранилище заявок
 pending_scores = {}
 
 # Проверка: админ ли
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
-# Меню админа
+# Главное меню админа
 def admin_menu_markup():
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -39,7 +44,7 @@ async def admin_start(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ У вас нет доступа к админ-панели.")
 
-# Обработка кнопок
+# Обработка кнопок меню
 async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
     if not is_admin(callback.from_user.id):
@@ -55,27 +60,36 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
         )
 
     elif callback.data == "admin_set_scores":
-        await callback.message.edit_text("⚙️ Оценка заявок происходит автоматически при поступлении.", reply_markup=admin_menu_markup())
+        await callback.message.edit_text(
+            "⚙️ Оценка заявок происходит автоматически при поступлении.",
+            reply_markup=admin_menu_markup()
+        )
 
     elif callback.data == "admin_send_news":
-        await callback.message.edit_text("📢 Пришлите сообщение, которое хотите разослать участникам (текст, фото, видео и т.д.):")
+        await callback.message.edit_text(
+            "📢 Пришлите сообщение, которое хотите разослать участникам (текст, фото, видео и т.д.):"
+        )
         await NewsState.waiting_for_news.set()
 
     elif callback.data == "admin_view_rating":
-        from services.sheets import get_top_users
         top_users = get_top_users()
 
         if not top_users:
-            await callback.message.edit_text("⚠️ Пока нет данных для рейтинга.", reply_markup=admin_menu_markup())
+            await callback.message.edit_text(
+                "⚠️ Пока нет данных для рейтинга.",
+                reply_markup=admin_menu_markup()
+            )
             return
 
         text = "🏆 Топ-10 участников:\n\n"
         for i, user in enumerate(top_users, start=1):
-            name = f"@{user['username']}" if user["username"] else user["name"]
+            if user["username"]:
+                name = f"[{user['name']}](https://t.me/{user['username']})"
+            else:
+                name = user["name"]
             text += f"{i}. {name} — {user['count']} заявок, {user['total']} баллов\n"
 
-        await callback.message.edit_text(text, reply_markup=admin_menu_markup())
-
+        await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="Markdown")
 
 # ✅ Подтвердить заявку
 async def handle_approve(callback: types.CallbackQuery, state: FSMContext):
@@ -120,7 +134,7 @@ async def receive_score(message: types.Message, state: FSMContext):
     await state.finish()
     pending_scores.pop(admin_id, None)
 
-# 📢 Обработка рассылки
+# 📤 Рассылка участникам
 async def send_news_to_users(message: types.Message, state: FSMContext):
     await state.finish()
     users = get_all_user_ids()

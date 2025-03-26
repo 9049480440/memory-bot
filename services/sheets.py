@@ -222,3 +222,42 @@ def get_all_user_ids():
     except Exception as e:
         print(f"[ERROR] get_all_user_ids: {e}")
         return []
+
+# 📊 Получение рейтинга участников
+def get_top_users(limit=10):
+    try:
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+        rows = sheet_app.get_all_values()[1:]
+    except Exception as e:
+        print(f"[ERROR] get_top_users: {e}")
+        return []
+
+    stats = {}
+
+    for row in rows:
+        if len(row) < 9:
+            continue
+
+        user_id = row[0]
+        username = row[1]
+        name = row[2]
+        score_str = row[8]
+
+        try:
+            score = int(score_str) if score_str.strip().isdigit() else 0
+        except:
+            score = 0
+
+        if user_id not in stats:
+            stats[user_id] = {
+                "username": username,
+                "name": name,
+                "count": 0,
+                "total": 0
+            }
+
+        stats[user_id]["count"] += 1
+        stats[user_id]["total"] += score
+
+    sorted_users = sorted(stats.values(), key=lambda u: u["total"], reverse=True)
+    return sorted_users[:limit]

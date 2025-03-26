@@ -8,6 +8,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from config import BOT_TOKEN
 from handlers import user_handlers, application_handlers, fallback_handler
 from handlers.application_handlers import incomplete_users
+from handlers import admin_handlers  # 👈 это новый импорт
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,6 +20,8 @@ dp = Dispatcher(bot, storage=storage)
 user_handlers.register_handlers(dp)
 application_handlers.register_application_handlers(dp)
 fallback_handler.register_fallback(dp)
+admin_handlers.register_admin_handlers(dp)  # 👈 регистрация админ-обработчиков
+
 
 # 🔔 Фоновая задача
 async def check_incomplete_users():

@@ -7,7 +7,7 @@ import time
 import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
-import logging  # Добавляем логирование
+import logging
 
 # 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -288,6 +288,17 @@ def get_top_users(limit=10):
         print(f"[ERROR] get_top_users: {e}")
         return []
 
+    # Получаем usernames из листа "Активность"
+    activity_usernames = {}
+    if sheet:
+        activity_rows = sheet.get_all_values()[1:]
+        for row in activity_rows:
+            if len(row) >= 2:
+                user_id = row[0]
+                username = row[1].strip()
+                if username:
+                    activity_usernames[user_id] = username
+
     stats = {}
 
     for row in rows:
@@ -295,9 +306,13 @@ def get_top_users(limit=10):
             continue
 
         user_id = row[0]
-        username = row[1]
+        username = row[1].strip()
         name = row[2]
         score_str = row[8]
+
+        # Если username пустой в "Заявках", берём из "Активности"
+        if not username and user_id in activity_usernames:
+            username = activity_usernames[user_id]
 
         try:
             score = int(score_str) if score_str.strip().isdigit() else 0

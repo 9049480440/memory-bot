@@ -3,8 +3,9 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from services.sheets import add_or_update_user, get_user_scores, save_user_state, get_user_state
-from handlers.application_handlers import start_application
-from services.common import main_menu_markup, is_admin, admin_menu_markup
+from handlers.application_handlers import ApplicationState
+from services.common import main_menu_markup, is_admin, admin_menu_markup, cancel_markup
+import logging
 
 # Команда /start
 async def start(message: types.Message, state: FSMContext):
@@ -23,10 +24,13 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     current_state, _, last_message_id = get_user_state(user_id)
 
-    # Если пользователь был в процессе подачи заявки, восстанавливаем состояние
+    # Восстановление анкеты
     if current_state.startswith("application_step"):
-        step = int(current_state.split("_")[-1])
-        data, _ = await state.get_data(), last_message_id
+        try:
+            step = int(current_state.split("_")[-1])
+        except:
+            step = 1
+
         if step == 1:
             await callback.message.edit_text("Пожалуйста, пришлите ссылку на пост с фотографией у памятника.", reply_markup=cancel_markup)
             await ApplicationState.waiting_for_link.set()
@@ -47,14 +51,12 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
             "Участвуйте, публикуйте посты у памятников, копите баллы и получайте призы!\n\n"
             "📄 Подробнее: https://docs.google.com/document/d/your-link-here"
         )
-        await callback.message.edit_text(
-            text,
-            reply_markup=main_menu_markup(user_id)
-        )
+        await callback.message.edit_text(text, reply_markup=main_menu_markup(user_id))
         save_user_state(user_id, "main_menu", None, callback.message.message_id)
 
     elif callback.data == "apply":
         await callback.message.edit_text("🚀 Начинаем подачу заявки!")
+        from handlers.application_handlers import start_application
         await start_application(callback.message)
 
     elif callback.data == "scores":
@@ -65,10 +67,7 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
         else:
             text = "Ваши заявки:\n\n" + "\n\n".join(results) + f"\n\n🌟 Всего баллов: {total}"
 
-        await callback.message.edit_text(
-            text,
-            reply_markup=main_menu_markup(user_id)
-        )
+        await callback.message.edit_text(text, reply_markup=main_menu_markup(user_id))
         save_user_state(user_id, "main_menu", None, callback.message.message_id)
 
     elif callback.data == "admin_panel":
@@ -78,7 +77,13 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
         else:
             await callback.message.answer("❌ У вас нет прав доступа.")
 
+# Обработка неподдерживаемых типов сообщений (например, фото, видео и т.д.)
+async def handle_non_text(message: types.Message):
+    await message.answer("Извините, я понимаю только текстовые сообщения. Вы можете задать вопрос или использовать кнопки меню.")
+
 # Регистрация
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(start, commands=["start"], state="*")
     dp.register_callback_query_handler(handle_main_menu, text=["info", "apply", "scores", "admin_panel"], state="*")
+    dp.register_message_handler(handle_non_text, content_types=types.ContentTypes.ANY, state="*")
+

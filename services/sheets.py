@@ -94,7 +94,6 @@ def export_rating_to_sheet():
 
 
 
-
 # ✅ Подача заявки + возврат ID
 
 def submit_application(user, date_text, location, monument_name, link):

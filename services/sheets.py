@@ -7,6 +7,8 @@ import time
 import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
+# 🔄 Обновление баллов в Активности (по сумме заявок)
+from services.sheets import get_user_scores  # в начале файла, если нужно
 
 # 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -50,7 +52,7 @@ def add_or_update_user(user):
 
 # 🔄 Обновление баллов в Активности
 
-def update_user_score_in_activity(user_id, score):
+def update_user_score_in_activity(user_id):
     if sheet is None:
         return
     try:
@@ -59,9 +61,11 @@ def update_user_score_in_activity(user_id, score):
         user_ids = [row[0] for row in all_users[1:]]
         if user_id in user_ids:
             idx = user_ids.index(user_id) + 2
-            sheet.update_cell(idx, 7, str(score))
+            _, total = get_user_scores(user_id)
+            sheet.update_cell(idx, 7, str(total))
     except Exception as e:
         print(f"[ERROR] update_user_score_in_activity: {e}")
+
 
 # 📤 Экспорт рейтинга
 

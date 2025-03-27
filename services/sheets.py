@@ -73,17 +73,25 @@ def export_rating_to_sheet():
         top_users = get_top_users(limit=100)
 
         sheet_app.clear()
-        sheet_app.append_row(["user_id", "имя", "username", "сколько_баллов"])
+        sheet_app.append_row(["user_id", "имя", "username", "telegram_link", "сколько_баллов"])
 
         for user in top_users:
+            user_id = user.get("user_id", "")
+            name = user.get("name", "")
+            username = user.get("username", "")
+            link = f"https://t.me/{username}" if username else ""
+            total = user.get("total", 0)
+
             sheet_app.append_row([
-                user.get("user_id", ""),
-                user.get("name", ""),
-                user.get("username", ""),
-                user.get("total", 0)
+                user_id,
+                name,
+                username,
+                link,
+                total
             ])
     except Exception as e:
         print(f"[ERROR] export_rating_to_sheet: {e}")
+
 
 
 # ✅ Подача заявки + возврат ID

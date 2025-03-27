@@ -12,6 +12,7 @@ from services.sheets import (
     update_user_score_in_activity,
     export_rating_to_sheet,
 )
+from handlers.user_handlers import main_menu  # Импортируем главное меню
 
 class ScoreState(StatesGroup):
     waiting_for_score = State()
@@ -132,19 +133,19 @@ async def receive_score(message: types.Message, state: FSMContext):
     if not submission_id:
         await message.answer("Что-то пошло не так. Повторите подтверждение заявки.")
         await state.finish()
-        await send_admin_panel(message)  # Возвращаем админ-панель
+        await send_admin_panel(message)
         return
 
     result = set_score_and_notify_user(submission_id, score)
 
     if result:
         user_id = submission_id.split("_")[0]
-        update_user_score_in_activity(user_id)  # Убрали score, т.к. функция сама считает
+        update_user_score_in_activity(user_id)
         await message.answer("✅ Баллы записаны, участник уведомлён.")
     else:
         await message.answer("⚠️ Не удалось обновить баллы. Возможно, заявка не найдена.")
 
-    await send_admin_panel(message)  # Всегда возвращаем админ-панель
+    await send_admin_panel(message)
     await state.finish()
     pending_scores.pop(admin_id, None)
 
@@ -155,11 +156,11 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
     for user_id in users:
         try:
             if message.photo:
-                await message.bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption or "")
+                await message.bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption or "", reply_markup=main_menu())
             elif message.video:
-                await message.bot.send_video(user_id, message.video.file_id, caption=message.caption or "")
+                await message.bot.send_video(user_id, message.video.file_id, caption=message.caption or "", reply_markup=main_menu())
             elif message.text:
-                await message.bot.send_message(user_id, message.text)
+                await message.bot.send_message(user_id, message.text, reply_markup=main_menu())
             sent += 1
         except Exception as e:
             print(f"[ERROR] Не удалось отправить {user_id}: {e}")

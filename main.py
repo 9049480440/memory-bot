@@ -7,7 +7,7 @@ import datetime
 from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.types import Update  # Добавляем для логирования
+from aiogram.types import Update
 
 from config import BOT_TOKEN
 from handlers import (
@@ -41,7 +41,7 @@ application_handlers.register_application_handlers(dp)
 admin_handlers.register_admin_handlers(dp)
 fallback_handler.register_fallback(dp)
 
-# Добавляем middleware для логирования всех обновлений
+# Middleware для логирования всех обновлений
 async def on_update(update: Update):
     if update.message:
         logger.info(f"Получено сообщение от user_id {update.message.from_user.id}: {update.message.text}")
@@ -54,34 +54,48 @@ dp.middleware.setup(lambda update, data: on_update(update))
 async def check_incomplete_users():
     while True:
         now = datetime.datetime.now()
+        current_time = now.time()
+        # Определяем границы времени (22:30 и 08:00)
+        night_start = datetime.time(22, 30)  # 22:30
+        morning_end = datetime.time(8, 0)    # 08:00
+
+        # Проверяем, находится ли текущее время в "ночном" диапазоне
+        is_night = (current_time >= night_start or current_time < morning_end)
+
         for user_id, started_at in list(incomplete_users.items()):
             delta = now - started_at
+            # Проверяем, прошло ли больше 1 часа, но меньше 2 часов
             if delta > datetime.timedelta(hours=1) and delta < datetime.timedelta(hours=2):
-                try:
-                    await bot.send_message(user_id, "👋 Вы начали подавать заявку, но не закончили. Продолжим?")
-                except Exception as e:
-                    logger.error(f"Ошибка отправки напоминания пользователю {user_id}: {e}")
+                if not is_night:  # Отправляем напоминание только если не ночь
+                    try:
+                        await bot.send_message(user_id, "👋 Вы начали подавать заявку, но не закончили. Продолжим?")
+                        logger.info(f"Напоминание отправлено пользователю {user_id} в {now}")
+                    except Exception as e:
+                        logger.error(f"Ошибка отправки напоминания пользователю {user_id}: {e}")
+                else:
+                    logger.info(f"Напоминание для пользователя {user_id} отложено, так как сейчас ночь (время: {current_time})")
+            # Удаляем заявку, если прошло больше 1 дня
             if delta > datetime.timedelta(days=1):
                 incomplete_users.pop(user_id, None)
+                logger.info(f"Заявка пользователя {user_id} удалена, так как прошло больше 1 дня")
+
         await asyncio.sleep(3600)  # Каждые 60 минут
 
 # 🔔 Фоновая задача: напоминания неактивным участникам
 async def check_inactive_users():
     while True:
         now = datetime.datetime.now()
-        # Проверяем только в 10:00
         if now.hour == 10 and now.minute == 0:
             try:
                 await send_reminders_to_inactive(bot)
                 logger.info("Напоминания неактивным участникам отправлены")
             except Exception as e:
                 logger.error(f"Ошибка при отправке напоминаний: {e}")
-        # Спим до следующей минуты, но вычисляем, сколько осталось до 10:00
         next_check = now.replace(hour=10, minute=0, second=0, microsecond=0)
         if now.hour >= 10:
-            next_check += datetime.timedelta(days=1)  # Следующий день в 10:00
+            next_check += datetime.timedelta(days=1)
         seconds_to_next_check = (next_check - now).total_seconds()
-        await asyncio.sleep(seconds_to_next_check)  # Спим до 10:00
+        await asyncio.sleep(seconds_to_next_check)
 
 # Запуск бота
 async def on_startup(_):

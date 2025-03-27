@@ -94,6 +94,7 @@ def export_rating_to_sheet():
                 link,
                 total
             ])
+            logging.info(f"[INFO] Записан пользователь {user_id} с username {username} и ссылкой {link}")
     except Exception as e:
         print(f"[ERROR] export_rating_to_sheet: {e}")
 
@@ -261,12 +262,14 @@ def set_score_and_notify_user(submission_id: str, score: int):
 # 📬 Уведомление участнику
 async def send_score_notification(user_id: int, score: int):
     from main import bot
+    from handlers.user_handlers import main_menu  # Импортируем главное меню
     try:
         await bot.send_message(
             user_id,
             f"🎉 Ваша заявка подтверждена!\n"
             f"Вам начислено {score} балл(ов).\n"
-            f"Поздравляем и желаем удачи — вы на пути к победе! 💪"
+            f"Поздравляем и желаем удачи — вы на пути к победе! 💪",
+            reply_markup=main_menu()  # Добавляем главное меню
         )
         logging.info(f"[INFO] Уведомление отправлено пользователю {user_id}")
     except Exception as e:
@@ -303,8 +306,7 @@ def get_top_users(limit=10):
             if len(row) >= 2:
                 user_id = row[0]
                 username = row[1].strip()
-                if username:
-                    activity_usernames[user_id] = username
+                activity_usernames[user_id] = username  # Сохраняем даже пустые
 
     stats = {}
 
@@ -320,6 +322,9 @@ def get_top_users(limit=10):
         # Если username пустой в "Заявках", берём из "Активности"
         if not username and user_id in activity_usernames:
             username = activity_usernames[user_id]
+
+        # Логируем, чтобы понять, что берётся
+        logging.info(f"[INFO] Для user_id {user_id}: username из Заявки = {row[1]}, из Активности = {activity_usernames.get(user_id, 'нет')}")
 
         try:
             score = int(score_str) if score_str.strip().isdigit() else 0

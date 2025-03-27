@@ -86,10 +86,10 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
                 name = user["name"] or "Без имени"
                 username = user.get("username")
                 if username:
-                    name = f"{name} (@{username})"
+                    name = f"[{name}](https://t.me/{username})"
                 text += f"{i}. {name} — {user['count']} заявок, {user['total']} баллов\n"
 
-        await callback.message.edit_text(text, reply_markup=admin_menu_markup())
+        await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="Markdown")
 
     elif callback.data == "admin_export_rating":
         export_rating_to_sheet()

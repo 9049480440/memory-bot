@@ -68,36 +68,39 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=admin_menu_markup()
         )
 
-elif callback.data == "admin_send_news":
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔙 Вернуться в панель", callback_data="cancel_admin_news"))
-    await callback.message.edit_text(
-        "📢 Пришлите сообщение, которое хотите разослать участникам (текст, фото, видео и т.д.):",
-        reply_markup=markup
-    )
-    await NewsState.waiting_for_news.set()
+    elif callback.data == "admin_send_news":
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🔙 Вернуться в панель", callback_data="cancel_admin_news"))
+        await callback.message.edit_text(
+            "📢 Пришлите сообщение, которое хотите разослать участникам (текст, фото, видео и т.д.):",
+            reply_markup=markup
+        )
+        await NewsState.waiting_for_news.set()
 
+    elif callback.data == "cancel_admin_news":
+        await state.finish()
+        await callback.message.edit_text("❌ Рассылка отменена.", reply_markup=admin_menu_markup())
 
     elif callback.data == "admin_view_rating":
         top_users = get_top_users()
 
-        text = ""
         if not top_users:
             text = "⚠️ Пока нет данных для рейтинга."
         else:
-            text = "🏆 Топ-10 участников:\n\n"
+            text = "🏆 <b>Топ-10 участников:</b>\n\n"
             for i, user in enumerate(top_users, start=1):
-                name = user["name"] or "Без имени"
-                username = user.get("username")
+                name = user.get("name", "Без имени")
+                username = user.get("username", "")
                 if username:
-                    name = f"[{name}](https://t.me/{username})"
+                    name = f'<a href="https://t.me/{username}">{name}</a>'
                 text += f"{i}. {name} — {user['count']} заявок, {user['total']} баллов\n"
 
-        await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="Markdown")
+        await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="HTML")
 
     elif callback.data == "admin_export_rating":
         export_rating_to_sheet()
         await callback.message.edit_text("✅ Рейтинг выгружен в таблицу!", reply_markup=admin_menu_markup())
+
 
 # ✅ Подтвердить заявку
 async def handle_approve(callback: types.CallbackQuery, state: FSMContext):

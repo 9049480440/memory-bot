@@ -4,22 +4,7 @@ from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from services.sheets import add_or_update_user, get_user_scores
 from handlers.application_handlers import start_application
-from services.common import main_menu_markup  # ← ✅ правильный импорт
-from config import ADMIN_IDS
-from handlers.admin_handlers import is_admin, admin_menu_markup
-
-
-# Главное меню
-def main_menu_markup(user_id=None):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("📌 Узнать о конкурсе", callback_data="info"),
-        types.InlineKeyboardButton("📨 Подать заявку", callback_data="apply"),
-        types.InlineKeyboardButton("⭐️ Мои баллы", callback_data="scores"),
-    )
-    if user_id and int(user_id) in ADMIN_IDS:
-        markup.add(types.InlineKeyboardButton("🛡 Админ-панель", callback_data="admin_panel"))
-    return markup
+from services.common import main_menu_markup, is_admin, admin_menu_markup  # Импортируем из common.py
 
 # Команда /start
 async def start(message: types.Message, state: FSMContext):

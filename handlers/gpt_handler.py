@@ -1,9 +1,10 @@
 # handlers/gpt_handler.py
 
 from openai import OpenAI
-from config import OPENAI_API_KEY, ADMINS  # Добавляем импорт ADMINS
-from handlers.admin_handlers import send_admin_panel  # Предполагаемый импорт админ-панели
+from config import OPENAI_API_KEY, ADMIN_IDS  # Используем ADMIN_IDS вместо ADMINS
+from handlers.admin_handlers import send_admin_panel
 import logging
+from aiogram import Dispatcher, types
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -45,8 +46,13 @@ async def ask_gpt(message):
         # Отправляем ответ пользователю
         await message.answer(answer)
         # Если это админ, показываем админ-панель
-        if message.from_user.id in ADMINS:
-            await send_admin_panel(message)  # Предполагаемая функция админ-панели
+        if message.from_user.id in ADMIN_IDS:
+            await send_admin_panel(message)
     except Exception as e:
         logging.error(f"GPT ERROR: {e}")
         await message.answer("Извините, я пока не могу ответить. Попробуйте позже.")
+
+def register_gpt_handler(dp: Dispatcher):
+    @dp.message_handler(lambda message: "?" in message.text)
+    async def handle_gpt_question(message: types.Message):
+        await ask_gpt(message)

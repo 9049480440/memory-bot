@@ -8,7 +8,7 @@ import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
 import logging
-from services.common import main_menu_markup  # Импортируем main_menu_markup
+from services.common import main_menu_markup
 
 # 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -323,6 +323,10 @@ def get_top_users(limit=10):
         # Если username пустой в "Заявках", берём из "Активности"
         if not username and user_id in activity_usernames:
             username = activity_usernames[user_id]
+
+        # Дополнительная проверка: если username всё ещё пустой, логируем
+        if not username:
+            logging.warning(f"[WARNING] Username для user_id {user_id} пустой после проверки Заявки и Активности")
 
         # Логируем, чтобы понять, что берётся
         logging.info(f"[INFO] Для user_id {user_id}: username из Заявки = {row[1]}, из Активности = {activity_usernames.get(user_id, 'нет')}")

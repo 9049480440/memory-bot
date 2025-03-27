@@ -1,5 +1,3 @@
-# sheets.py
-
 import os
 import json
 import gspread
@@ -50,7 +48,6 @@ def add_or_update_user(user):
         print(f"[ERROR] Пользователь не добавлен: {e}")
 
 # 🔄 Обновление баллов в Активности
-
 def update_user_score_in_activity(user_id):
     if sheet is None:
         return
@@ -64,7 +61,6 @@ def update_user_score_in_activity(user_id):
             sheet.update_cell(idx, 7, str(total))
     except Exception as e:
         print(f"[ERROR] update_user_score_in_activity: {e}")
-
 
 # 📤 Экспорт рейтинга в Google Таблицу
 def export_rating_to_sheet():
@@ -92,10 +88,7 @@ def export_rating_to_sheet():
     except Exception as e:
         print(f"[ERROR] export_rating_to_sheet: {e}")
 
-
-
 # ✅ Подача заявки + возврат ID
-
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -127,7 +120,6 @@ def submit_application(user, date_text, location, monument_name, link):
         return None
 
 # ⭐️ Получение баллов пользователя
-
 def get_user_scores(user_id: str):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -154,8 +146,7 @@ def get_user_scores(user_id: str):
 
     return results, total_score
 
-# 📬 Поиск неактивных участников
-
+# 📬 Поиск неактивных участников (обновлённая версия)
 def get_inactive_users(days=21):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -189,23 +180,37 @@ def get_inactive_users(days=21):
             }
 
     now = datetime.datetime.now()
-    deadline = datetime.datetime(2025, 11, 30)
     inactive = []
 
     for user in user_data.values():
         days_since_submission = (now - user["last_submission"]).days
         if days_since_submission >= days:
-            days_left = (deadline - now).days
             inactive.append({
                 "user_id": user["user_id"],
                 "username": user["username"],
-                "days_left": days_left if days_left > 0 else 0
+                "days_since": days_since_submission
             })
 
     return inactive
 
-# 📊 Получение статистики по заявкам
+# 📬 Отправка напоминаний неактивным участникам (новая функция)
+def send_reminders_to_inactive(bot):
+    inactive_users = get_inactive_users(days=21)
+    for user in inactive_users:
+        user_id = user["user_id"]
+        username = user["username"]
+        days_since = user["days_since"]
+        try:
+            bot.send_message(
+                user_id,
+                f"Привет, {username or 'участник'}! Ты не подавал заявки уже {days_since} дней. "
+                "Вернись в конкурс 'Эстафета Победы' и заработай баллы! Подай заявку через /start."
+            )
+            print(f"[INFO] Напоминание отправлено {user_id}")
+        except Exception as e:
+            print(f"[ERROR] Не удалось отправить напоминание {user_id}: {e}")
 
+# 📊 Получение статистики по заявкам
 def get_submission_stats():
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -220,7 +225,6 @@ def get_submission_stats():
     return len(rows), len(user_ids)
 
 # ✅ Проставить баллы и уведомить участника
-
 def set_score_and_notify_user(submission_id: str, score: int):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -244,7 +248,6 @@ def set_score_and_notify_user(submission_id: str, score: int):
         return False
 
 # 📬 Уведомление участнику
-
 async def send_score_notification(user_id: int, score: int):
     from main import bot
     try:
@@ -258,7 +261,6 @@ async def send_score_notification(user_id: int, score: int):
         print(f"[ERROR] Не удалось отправить сообщение участнику {user_id}: {e}")
 
 # 📬 Получить список всех user_id, кто подавал заявки
-
 def get_all_user_ids():
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -273,7 +275,6 @@ def get_all_user_ids():
         return []
 
 # 📊 Получение рейтинга участников
-
 def get_top_users(limit=10):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")

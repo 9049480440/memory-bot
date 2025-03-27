@@ -9,7 +9,7 @@ import datetime
 
 from services.sheets import submit_application
 from config import ADMIN_IDS
-from common import main_menu_markup
+from services.common import main_menu_markup
 
 # Состояния анкеты
 class ApplicationState(StatesGroup):

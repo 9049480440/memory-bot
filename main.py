@@ -8,6 +8,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import Update
+from aiogram.dispatcher.middlewares import BaseMiddleware  # Добавляем BaseMiddleware
 
 from config import BOT_TOKEN
 from handlers import (
@@ -35,20 +36,22 @@ bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
+# Middleware для логирования всех обновлений
+class LoggingMiddleware(BaseMiddleware):
+    async def on_process_update(self, update: Update, data: dict):
+        if update.message:
+            logger.info(f"Получено сообщение от user_id {update.message.from_user.id}: {update.message.text}")
+        elif update.callback_query:
+            logger.info(f"Получен callback от user_id {update.callback_query.from_user.id}: {update.callback_query.data}")
+
+# Регистрируем middleware
+dp.middleware.setup(LoggingMiddleware())
+
 # Регистрируем обработчики
 user_handlers.register_handlers(dp)
 application_handlers.register_application_handlers(dp)
 admin_handlers.register_admin_handlers(dp)
 fallback_handler.register_fallback(dp)
-
-# Middleware для логирования всех обновлений
-async def on_update(update: Update):
-    if update.message:
-        logger.info(f"Получено сообщение от user_id {update.message.from_user.id}: {update.message.text}")
-    elif update.callback_query:
-        logger.info(f"Получен callback от user_id {update.callback_query.from_user.id}: {update.callback_query.data}")
-
-dp.middleware.setup(lambda update, data: on_update(update))
 
 # 🔔 Фоновая задача: напоминания о незавершённых заявках
 async def check_incomplete_users():

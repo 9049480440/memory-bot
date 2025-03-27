@@ -40,6 +40,13 @@ async def admin_start(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ У вас нет доступа к админ-панели.")
 
+async def cancel_action(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    await state.finish()
+    clear_user_state(user_id)
+    await message.answer("Действие отменено.")
+    await send_admin_panel(message)
+
 async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
     user_id = callback.from_user.id
@@ -211,6 +218,7 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
 
 def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_start, commands=["admin"], state="*")
+    dp.register_message_handler(cancel_action, commands=["cancel"], state="*")
     dp.register_callback_query_handler(handle_admin_panel, text=[
         "admin_view_apps", "admin_set_scores", "admin_send_news", "admin_view_rating", "admin_export_rating", "cancel_admin_news"
     ], state="*")

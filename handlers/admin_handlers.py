@@ -12,7 +12,7 @@ from services.sheets import (
     update_user_score_in_activity,
     export_rating_to_sheet,
 )
-from handlers.user_handlers import main_menu  # Импортируем главное меню
+from services.common import main_menu_markup  # Импортируем main_menu_markup
 
 class ScoreState(StatesGroup):
     waiting_for_score = State()
@@ -156,11 +156,11 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
     for user_id in users:
         try:
             if message.photo:
-                await message.bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption or "", reply_markup=main_menu())
+                await message.bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption or "", reply_markup=main_menu_markup(user_id=user_id))
             elif message.video:
-                await message.bot.send_video(user_id, message.video.file_id, caption=message.caption or "", reply_markup=main_menu())
+                await message.bot.send_video(user_id, message.video.file_id, caption=message.caption or "", reply_markup=main_menu_markup(user_id=user_id))
             elif message.text:
-                await message.bot.send_message(user_id, message.text, reply_markup=main_menu())
+                await message.bot.send_message(user_id, message.text, reply_markup=main_menu_markup(user_id=user_id))
             sent += 1
         except Exception as e:
             print(f"[ERROR] Не удалось отправить {user_id}: {e}")

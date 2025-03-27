@@ -173,6 +173,11 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
     await message.answer(f"✅ Рассылка завершена. Отправлено {sent} пользователям.")
     await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
 
+async def cancel_news(callback: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await callback.message.edit_text("❌ Рассылка отменена.", reply_markup=admin_menu_markup())
+
+
 # Регистрация
 def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_start, commands=["admin"], state="*")
@@ -183,3 +188,5 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(handle_reject, text_startswith="reject_", state="*")
     dp.register_message_handler(receive_score, state=ScoreState.waiting_for_score)
     dp.register_message_handler(send_news_to_users, content_types=types.ContentTypes.ANY, state=NewsState.waiting_for_news)
+    dp.register_callback_query_handler(cancel_news, text="cancel_admin_news", state=NewsState.waiting_for_news)
+

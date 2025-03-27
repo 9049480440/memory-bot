@@ -59,13 +59,19 @@ async def check_incomplete_users():
 async def check_inactive_users():
     while True:
         now = datetime.datetime.now()
-        if now.hour == 10 and now.minute == 0:  # Проверка в 10:00 каждый день
+        # Проверяем только в 10:00
+        if now.hour == 10 and now.minute == 0:
             try:
                 await send_reminders_to_inactive(bot)
                 logger.info("Напоминания неактивным участникам отправлены")
             except Exception as e:
                 logger.error(f"Ошибка при отправке напоминаний: {e}")
-        await asyncio.sleep(60)  # Проверка каждую минуту
+        # Спим до следующей минуты, но вычисляем, сколько осталось до 10:00
+        next_check = now.replace(hour=10, minute=0, second=0, microsecond=0)
+        if now.hour >= 10:
+            next_check += datetime.timedelta(days=1)  # Следующий день в 10:00
+        seconds_to_next_check = (next_check - now).total_seconds()
+        await asyncio.sleep(seconds_to_next_check)  # Спим до 10:00
 
 # Запуск бота
 async def on_startup(_):

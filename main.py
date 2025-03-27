@@ -3,6 +3,7 @@
 import logging
 import os
 import asyncio
+import datetime  # Добавляем импорт datetime
 from aiogram import Bot, Dispatcher
 from aiogram.types import Update
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -43,7 +44,7 @@ fallback_handler.register_fallback(dp)
 
 # Webhook путь
 WEBHOOK_PATH = '/webhook'
-WEBHOOK_URL = f"https://memory-bot.onrender.com{WEBHOOK_PATH}"  # Домен уже правильный!
+WEBHOOK_URL = f"https://memory-bot.onrender.com{WEBHOOK_PATH}"  # Домен уже правильный
 
 # Настройки сервера
 PORT = int(os.getenv('PORT', 8000))  # Render использует переменную PORT, по умолчанию 8000

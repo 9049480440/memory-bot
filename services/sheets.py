@@ -1,5 +1,7 @@
 #sheets.py
 
+# sheets.py
+
 import os
 import json
 import gspread
@@ -25,6 +27,15 @@ try:
 except Exception:
     sheet = None
 
+# 📄 Лист для хранения состояния пользователей
+try:
+    state_sheet = client.open_by_key(SPREADSHEET_ID).worksheet("UserState")
+except Exception:
+    # Если лист не существует, создаём его
+    spreadsheet = client.open_by_key(SPREADSHEET_ID)
+    state_sheet = spreadsheet.add_worksheet(title="UserState", rows="1000", cols="4")
+    state_sheet.append_row(["user_id", "state", "data", "last_message_id"])
+
 def add_or_update_user(user):
     if sheet is None:
         print("[WARNING] Лист 'Активность' не найден.")
@@ -35,7 +46,6 @@ def add_or_update_user(user):
         user_ids = [row[0] for row in all_users[1:]]
         if user_id in user_ids:
             idx = user_ids.index(user_id) + 2
-            # Обновляем username и имя, если они изменились
             sheet.update_cell(idx, 2, user.username or '')
             sheet.update_cell(idx, 3, user.full_name)
             sheet.update_cell(idx, 4, '=TODAY()')
@@ -53,7 +63,6 @@ def add_or_update_user(user):
     except Exception as e:
         print(f"[ERROR] Пользователь не добавлен: {e}")
 
-# 🔄 Обновление баллов в Активности
 def update_user_score_in_activity(user_id):
     if sheet is None:
         return
@@ -68,7 +77,6 @@ def update_user_score_in_activity(user_id):
     except Exception as e:
         print(f"[ERROR] update_user_score_in_activity: {e}")
 
-# 📤 Экспорт рейтинга в Google Таблицу
 def export_rating_to_sheet():
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Рейтинг")
@@ -81,7 +89,6 @@ def export_rating_to_sheet():
             user_id = user.get("user_id", "")
             name = user.get("name", "")
             username = user.get("username", "").strip()
-            # Формируем ссылку: если есть username, используем его, иначе user_id
             if username:
                 link = f"https://t.me/{username.lstrip('@')}"
             else:
@@ -99,7 +106,6 @@ def export_rating_to_sheet():
     except Exception as e:
         print(f"[ERROR] export_rating_to_sheet: {e}")
 
-# ✅ Подача заявки + возврат ID
 def submit_application(user, date_text, location, monument_name, link):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -130,7 +136,6 @@ def submit_application(user, date_text, location, monument_name, link):
         print(f"[ERROR] Не удалось добавить заявку: {e}")
         return None
 
-# ⭐️ Получение баллов пользователя
 def get_user_scores(user_id: str):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -157,7 +162,6 @@ def get_user_scores(user_id: str):
 
     return results, total_score
 
-# 📬 Поиск неактивных участников
 def get_inactive_users(days=21):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -204,7 +208,6 @@ def get_inactive_users(days=21):
 
     return inactive
 
-# 📬 Отправка напоминаний неактивным участникам
 def send_reminders_to_inactive(bot):
     inactive_users = get_inactive_users(days=21)
     for user in inactive_users:
@@ -222,7 +225,6 @@ def send_reminders_to_inactive(bot):
         except Exception as e:
             print(f"[ERROR] Не удалось отправить напоминание {user_id}: {e}")
 
-# 📊 Получение статистики по заявкам
 def get_submission_stats():
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -236,7 +238,6 @@ def get_submission_stats():
             user_ids.add(row[0])
     return len(rows), len(user_ids)
 
-# ✅ Проставить баллы и уведомить участника
 def set_score_and_notify_user(submission_id: str, score: int):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -261,7 +262,6 @@ def set_score_and_notify_user(submission_id: str, score: int):
         logging.error(f"[ERROR] Ошибка при выставлении баллов: {e}")
         return False
 
-# 📬 Уведомление участнику
 async def send_score_notification(user_id: int, score: int):
     from main import bot
     try:
@@ -276,7 +276,6 @@ async def send_score_notification(user_id: int, score: int):
     except Exception as e:
         logging.error(f"[ERROR] Не удалось отправить сообщение участнику {user_id}: {e}")
 
-# 📬 Получить список всех user_id, кто подавал заявки
 def get_all_user_ids():
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -290,7 +289,6 @@ def get_all_user_ids():
         print(f"[ERROR] get_all_user_ids: {e}")
         return []
 
-# 📊 Получение рейтинга участников
 def get_top_users(limit=10):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -299,7 +297,6 @@ def get_top_users(limit=10):
         print(f"[ERROR] get_top_users: {e}")
         return []
 
-    # Получаем usernames из листа "Активность"
     activity_usernames = {}
     if sheet:
         activity_rows = sheet.get_all_values()[1:]
@@ -320,15 +317,12 @@ def get_top_users(limit=10):
         name = row[2]
         score_str = row[8]
 
-        # Если username пустой в "Заявках", берём из "Активности"
         if not username and user_id in activity_usernames:
             username = activity_usernames[user_id]
 
-        # Дополнительная проверка: если username всё ещё пустой, логируем
         if not username:
             logging.warning(f"[WARNING] Username для user_id {user_id} пустой после проверки Заявки и Активности")
 
-        # Логируем, чтобы понять, что берётся
         logging.info(f"[INFO] Для user_id {user_id}: username из Заявки = {row[1]}, из Активности = {activity_usernames.get(user_id, 'нет')}")
 
         try:
@@ -350,3 +344,61 @@ def get_top_users(limit=10):
 
     sorted_users = sorted(stats.values(), key=lambda u: u["total"], reverse=True)
     return sorted_users[:limit]
+
+# Новые функции для работы с состоянием пользователей
+def save_user_state(user_id, state, data=None, last_message_id=None):
+    """Сохраняет состояние пользователя в Google Таблицах."""
+    try:
+        all_rows = state_sheet.get_all_values()
+        user_ids = [row[0] for row in all_rows[1:]]
+        user_id = str(user_id)
+
+        # Если пользователь уже есть, обновляем его состояние
+        if user_id in user_ids:
+            idx = user_ids.index(user_id) + 2
+            state_sheet.update_cell(idx, 2, state)
+            state_sheet.update_cell(idx, 3, json.dumps(data) if data else "")
+            if last_message_id:
+                state_sheet.update_cell(idx, 4, str(last_message_id))
+        else:
+            # Если пользователя нет, добавляем новую строку
+            new_row = [
+                user_id,
+                state,
+                json.dumps(data) if data else "",
+                str(last_message_id) if last_message_id else ""
+            ]
+            state_sheet.append_row(new_row)
+    except Exception as e:
+        logging.error(f"[ERROR] Не удалось сохранить состояние для user_id {user_id}: {e}")
+
+def get_user_state(user_id):
+    """Получает состояние пользователя из Google Таблиц."""
+    try:
+        all_rows = state_sheet.get_all_values()
+        user_id = str(user_id)
+        for row in all_rows[1:]:
+            if row[0] == user_id:
+                state = row[1] if len(row) > 1 else "main_menu"
+                data = json.loads(row[2]) if len(row) > 2 and row[2] else None
+                last_message_id = int(row[3]) if len(row) > 3 and row[3].isdigit() else None
+                return state, data, last_message_id
+        return "main_menu", None, None  # По умолчанию
+    except Exception as e:
+        logging.error(f"[ERROR] Не удалось получить состояние для user_id {user_id}: {e}")
+        return "main_menu", None, None
+
+def clear_user_state(user_id):
+    """Очищает состояние пользователя в Google Таблицах."""
+    try:
+        all_rows = state_sheet.get_all_values()
+        user_ids = [row[0] for row in all_rows[1:]]
+        user_id = str(user_id)
+
+        if user_id in user_ids:
+            idx = user_ids.index(user_id) + 2
+            state_sheet.update_cell(idx, 2, "main_menu")
+            state_sheet.update_cell(idx, 3, "")
+            state_sheet.update_cell(idx, 4, "")
+    except Exception as e:
+        logging.error(f"[ERROR] Не удалось очистить состояние для user_id {user_id}: {e}")

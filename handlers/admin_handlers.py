@@ -35,7 +35,7 @@ def admin_menu_markup():
     )
     return markup
 
-async def send_admin_panel(message: types.Message):  # Новая функция для GPT
+async def send_admin_panel(message: types.Message):
     if is_admin(message.from_user.id):
         await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
 
@@ -85,7 +85,6 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
                 name = user.get("name", "Без имени")
                 username = user.get("username", "").strip()
                 user_id = user.get("user_id", "")
-                # Формируем ссылку: если есть username, используем его, иначе user_id
                 if username:
                     clean_username = username.lstrip("@")
                     link = f"https://t.me/{clean_username}"
@@ -133,18 +132,19 @@ async def receive_score(message: types.Message, state: FSMContext):
     if not submission_id:
         await message.answer("Что-то пошло не так. Повторите подтверждение заявки.")
         await state.finish()
+        await send_admin_panel(message)  # Возвращаем админ-панель
         return
 
     result = set_score_and_notify_user(submission_id, score)
 
     if result:
         user_id = submission_id.split("_")[0]
-        update_user_score_in_activity(user_id, score)
+        update_user_score_in_activity(user_id)  # Убрали score, т.к. функция сама считает
         await message.answer("✅ Баллы записаны, участник уведомлён.")
     else:
         await message.answer("⚠️ Не удалось обновить баллы. Возможно, заявка не найдена.")
 
-    await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+    await send_admin_panel(message)  # Всегда возвращаем админ-панель
     await state.finish()
     pending_scores.pop(admin_id, None)
 

@@ -2,3 +2,4 @@ aiogram==2.25.1
 gspread
 oauth2client
 openai>=1.0.0
+aiohttp

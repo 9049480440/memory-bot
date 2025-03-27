@@ -3,7 +3,8 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from services.sheets import add_or_update_user, get_user_scores
-from handlers.application_handlers import start_application
+from application_handlers import start_application
+from common import main_menu_markup
 from config import ADMIN_IDS
 from handlers.admin_handlers import is_admin, admin_menu_markup
 

@@ -6,8 +6,9 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import asyncio
 import datetime
+import json
 
-from services.sheets import submit_application
+from services.sheets import submit_application, save_user_state, get_user_state, clear_user_state
 from config import ADMIN_IDS
 from services.common import main_menu_markup
 
@@ -17,9 +18,6 @@ class ApplicationState(StatesGroup):
     waiting_for_date = State()
     waiting_for_location = State()
     waiting_for_name = State()
-
-# Временное хранилище
-incomplete_users = {}
 
 # Кнопка "Задать вопрос"
 def ask_question_markup():
@@ -36,12 +34,15 @@ cancel_markup = InlineKeyboardMarkup().add(
 # Старт анкеты
 async def start_application(message: types.Message):
     user_id = message.from_user.id
-    incomplete_users[user_id] = datetime.datetime.now()
-    await message.answer("Пожалуйста, пришлите ссылку на пост с фотографией у памятника.", reply_markup=cancel_markup)
+    # Сохраняем состояние в Google Таблицах
+    save_user_state(user_id, "application_step_1", {"start_time": datetime.datetime.now().isoformat()})
+    msg = await message.answer("Пожалуйста, пришлите ссылку на пост с фотографией у памятника.", reply_markup=cancel_markup)
+    save_user_state(user_id, "application_step_1", {"start_time": datetime.datetime.now().isoformat()}, msg.message_id)
     await ApplicationState.waiting_for_link.set()
 
 # Обработка ссылки
 async def process_link(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
     text = message.text.strip()
     if "?" in text or len(text.split()) > 10 or not text.startswith("http"):
         await message.answer(
@@ -51,30 +52,44 @@ async def process_link(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(link=text)
-    await message.answer("Спасибо! Теперь введите дату съёмки (ДД.ММ.ГГГГ):", reply_markup=cancel_markup)
+    # Сохраняем состояние
+    save_user_state(user_id, "application_step_2", {"link": text})
+    msg = await message.answer("Спасибо! Теперь введите дату съёмки (ДД.ММ.ГГГГ):", reply_markup=cancel_markup)
+    save_user_state(user_id, "application_step_2", {"link": text}, msg.message_id)
     await ApplicationState.waiting_for_date.set()
 
 # Обработка даты
 async def process_date(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
     try:
         datetime.datetime.strptime(message.text, "%d.%m.%Y")
     except ValueError:
         await message.answer("Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ:", reply_markup=cancel_markup)
         return
-    await state.update_data(date=message.text)
-    await message.answer("Отлично! Теперь введите место съёмки:", reply_markup=cancel_markup)
+    data = await state.get_data()
+    data["date"] = message.text
+    # Сохраняем состояние
+    save_user_state(user_id, "application_step_3", data)
+    msg = await message.answer("Отлично! Теперь введите место съёмки:", reply_markup=cancel_markup)
+    save_user_state(user_id, "application_step_3", data, msg.message_id)
     await ApplicationState.waiting_for_location.set()
 
 # Обработка места
 async def process_location(message: types.Message, state: FSMContext):
-    await state.update_data(location=message.text)
-    await message.answer("Теперь введите название памятника или мероприятия:", reply_markup=cancel_markup)
+    user_id = message.from_user.id
+    data = await state.get_data()
+    data["location"] = message.text
+    # Сохраняем состояние
+    save_user_state(user_id, "application_step_4", data)
+    msg = await message.answer("Теперь введите название памятника или мероприятия:", reply_markup=cancel_markup)
+    save_user_state(user_id, "application_step_4", data, msg.message_id)
     await ApplicationState.waiting_for_name.set()
 
 # Обработка названия и завершение
 async def process_name(message: types.Message, state: FSMContext):
-    await state.update_data(name=message.text)
+    user_id = message.from_user.id
     data = await state.get_data()
+    data["name"] = message.text
 
     link = data.get("link")
     date_text = data.get("date")
@@ -84,10 +99,12 @@ async def process_name(message: types.Message, state: FSMContext):
     submission_id = submit_application(message.from_user, date_text, location, monument_name, link)
 
     await message.answer("✅ Ваша заявка принята! Спасибо за участие.")
-    await message.answer("👇 Главное меню:", reply_markup=main_menu_markup(message.from_user.id))
+    msg = await message.answer("👇 Главное меню:", reply_markup=main_menu_markup(message.from_user.id))
 
+    # Очищаем состояние
+    clear_user_state(user_id)
+    save_user_state(user_id, "main_menu", None, msg.message_id)
     await state.finish()
-    incomplete_users.pop(message.from_user.id, None)
 
     for admin_id in ADMIN_IDS:
         try:
@@ -109,22 +126,25 @@ async def process_name(message: types.Message, state: FSMContext):
 
 # Отмена анкеты (по команде или по кнопке)
 async def cancel_application(message_or_callback, state: FSMContext):
+    user_id = message_or_callback.from_user.id if isinstance(message_or_callback, types.Message) else message_or_callback.from_user.id
     await state.finish()
-    user_id = message_or_callback.from_user.id
-    incomplete_users.pop(user_id, None)
+    clear_user_state(user_id)
     if isinstance(message_or_callback, types.Message):
         await message_or_callback.answer("Подача заявки отменена.")
-        await message_or_callback.answer("👇 Главное меню:", reply_markup=main_menu_markup(user_id))
+        msg = await message_or_callback.answer("👇 Главное меню:", reply_markup=main_menu_markup(user_id))
     elif isinstance(message_or_callback, types.CallbackQuery):
         await message_or_callback.message.edit_text("Подача заявки отменена.")
-        await message_or_callback.message.answer("👇 Главное меню:", reply_markup=main_menu_markup(user_id))
+        msg = await message_or_callback.message.answer("👇 Главное меню:", reply_markup=main_menu_markup(user_id))
+    save_user_state(user_id, "main_menu", None, msg.message_id)
 
 # Кнопка GPT
 async def handle_callback_query(callback_query: types.CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
     await state.finish()
-    incomplete_users.pop(callback_query.from_user.id, None)
+    clear_user_state(user_id)
     await callback_query.message.answer("Вы можете задать вопрос — я постараюсь помочь 🤖")
-    await callback_query.message.answer("👇 Главное меню:", reply_markup=main_menu_markup(callback_query.from_user.id))
+    msg = await callback_query.message.answer("👇 Главное меню:", reply_markup=main_menu_markup(user_id))
+    save_user_state(user_id, "main_menu", None, msg.message_id)
 
 # Регистрация
 def register_application_handlers(dp: Dispatcher):
@@ -134,5 +154,5 @@ def register_application_handlers(dp: Dispatcher):
     dp.register_message_handler(process_location, state=ApplicationState.waiting_for_location)
     dp.register_message_handler(process_name, state=ApplicationState.waiting_for_name)
     dp.register_message_handler(cancel_application, commands=["cancel"], state="*")
-    dp.register_callback_query_handler(cancel_application, text="cancel_app", state="*")  # 👈 Обработка кнопки отмены
+    dp.register_callback_query_handler(cancel_application, text="cancel_app", state="*")
     dp.register_callback_query_handler(handle_callback_query, text="ask_gpt", state="*")

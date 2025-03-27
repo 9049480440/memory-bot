@@ -81,7 +81,8 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
                 name = user.get("name", "Без имени")
                 username = user.get("username", "")
                 if username:
-                    name = f'<a href="https://t.me/{username}">{name}</a>'
+                    clean_username = username.lstrip("@").strip()
+                    name = f'<a href="https://t.me/{clean_username}">{name}</a>'
                 text += f"{i}. {name} — {user['count']} заявок, {user['total']} баллов\n"
 
         await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="HTML")

@@ -9,6 +9,7 @@ import datetime
 
 from services.sheets import submit_application
 from config import ADMIN_IDS
+from handlers.user_handlers import main_menu_markup  # 👈 чтобы показать меню после заявки
 
 # Состояния анкеты
 class ApplicationState(StatesGroup):
@@ -74,15 +75,14 @@ async def process_name(message: types.Message, state: FSMContext):
     location = data.get("location")
     monument_name = data.get("name")
 
-    # Сохраняем заявку и получаем ID
     submission_id = submit_application(message.from_user, date_text, location, monument_name, link)
 
-    # Уведомление пользователю
     await message.answer("✅ Ваша заявка принята! Спасибо за участие.")
+    await message.answer("👇 Главное меню:", reply_markup=main_menu_markup(message.from_user.id))  # 👈 вернёт меню
+
     await state.finish()
     incomplete_users.pop(message.from_user.id, None)
 
-    # Уведомление админу
     for admin_id in ADMIN_IDS:
         try:
             markup = InlineKeyboardMarkup()
@@ -106,12 +106,14 @@ async def cancel_application(message: types.Message, state: FSMContext):
     await state.finish()
     incomplete_users.pop(message.from_user.id, None)
     await message.answer("Подача заявки отменена. Если захотите начать заново — нажмите «📨 Подать заявку».")
+    await message.answer("👇 Главное меню:", reply_markup=main_menu_markup(message.from_user.id))
 
 # Кнопка GPT
 async def handle_callback_query(callback_query: types.CallbackQuery, state: FSMContext):
     await state.finish()
     incomplete_users.pop(callback_query.from_user.id, None)
     await callback_query.message.answer("Вы можете задать вопрос — я постараюсь помочь 🤖")
+    await callback_query.message.answer("👇 Главное меню:", reply_markup=main_menu_markup(callback_query.from_user.id))
 
 # Регистрация
 def register_application_handlers(dp: Dispatcher):

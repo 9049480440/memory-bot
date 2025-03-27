@@ -133,14 +133,13 @@ async def receive_score(message: types.Message, state: FSMContext):
         user_id = submission_id.split("_")[0]
         update_user_score_in_activity(user_id, score)
         await message.answer("✅ Баллы записаны, участник уведомлён.")
-        await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
-
     else:
-        await message.answer("⚠️ Не удалось обновить баллы.")
+        await message.answer("⚠️ Не удалось обновить баллы. Возможно, заявка не найдена.")
 
     await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
     await state.finish()
     pending_scores.pop(admin_id, None)
+
 
 async def send_news_to_users(message: types.Message, state: FSMContext):
     await state.finish()

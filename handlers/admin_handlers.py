@@ -68,11 +68,15 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=admin_menu_markup()
         )
 
-    elif callback.data == "admin_send_news":
-        await callback.message.edit_text(
-            "📢 Пришлите сообщение, которое хотите разослать участникам (текст, фото, видео и т.д.):"
-        )
-        await NewsState.waiting_for_news.set()
+elif callback.data == "admin_send_news":
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔙 Вернуться в панель", callback_data="cancel_admin_news"))
+    await callback.message.edit_text(
+        "📢 Пришлите сообщение, которое хотите разослать участникам (текст, фото, видео и т.д.):",
+        reply_markup=markup
+    )
+    await NewsState.waiting_for_news.set()
+
 
     elif callback.data == "admin_view_rating":
         top_users = get_top_users()

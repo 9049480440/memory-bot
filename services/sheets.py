@@ -1,3 +1,5 @@
+#sheets.py
+
 import os
 import json
 import gspread
@@ -5,7 +7,7 @@ import time
 import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
-
+import logging  # Добавляем логирование
 
 # 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -75,7 +77,7 @@ def export_rating_to_sheet():
             user_id = user.get("user_id", "")
             name = user.get("name", "")
             username = user.get("username", "").strip()
-            link = f"https://t.me/{username.lstrip('@')}" if username else ""
+            link = f"https://t.me/{username.lstrip('@')}" if username else "Нет username"
             total = user.get("total", 0)
 
             sheet_app.append_row([
@@ -146,7 +148,7 @@ def get_user_scores(user_id: str):
 
     return results, total_score
 
-# 📬 Поиск неактивных участников (обновлённая версия)
+# 📬 Поиск неактивных участников
 def get_inactive_users(days=21):
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
@@ -193,7 +195,7 @@ def get_inactive_users(days=21):
 
     return inactive
 
-# 📬 Отправка напоминаний неактивным участникам (новая функция)
+# 📬 Отправка напоминаний неактивным участникам
 def send_reminders_to_inactive(bot):
     inactive_users = get_inactive_users(days=21)
     for user in inactive_users:
@@ -236,15 +238,17 @@ def set_score_and_notify_user(submission_id: str, score: int):
             if len(row) >= 4 and row[3] == submission_id:
                 user_id = int(row[0])
                 sheet_app.update_cell(idx, 9, str(score))
+                logging.info(f"[INFO] Баллы {score} записаны для submission_id {submission_id}")
 
                 import asyncio
                 loop = asyncio.get_event_loop()
                 loop.create_task(send_score_notification(user_id, score))
                 return True
 
+        logging.warning(f"[WARNING] Заявка с submission_id {submission_id} не найдена")
         return False
     except Exception as e:
-        print(f"[ERROR] Ошибка при выставлении баллов: {e}")
+        logging.error(f"[ERROR] Ошибка при выставлении баллов: {e}")
         return False
 
 # 📬 Уведомление участнику
@@ -257,8 +261,9 @@ async def send_score_notification(user_id: int, score: int):
             f"Вам начислено {score} балл(ов).\n"
             f"Поздравляем и желаем удачи — вы на пути к победе! 💪"
         )
+        logging.info(f"[INFO] Уведомление отправлено пользователю {user_id}")
     except Exception as e:
-        print(f"[ERROR] Не удалось отправить сообщение участнику {user_id}: {e}")
+        logging.error(f"[ERROR] Не удалось отправить сообщение участнику {user_id}: {e}")
 
 # 📬 Получить список всех user_id, кто подавал заявки
 def get_all_user_ids():

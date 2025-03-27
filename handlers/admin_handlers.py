@@ -35,6 +35,10 @@ def admin_menu_markup():
     )
     return markup
 
+async def send_admin_panel(message: types.Message):  # Новая функция для GPT
+    if is_admin(message.from_user.id):
+        await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+
 async def admin_start(message: types.Message, state: FSMContext):
     if is_admin(message.from_user.id):
         await state.finish()
@@ -79,11 +83,15 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             text = "🏆 <b>Топ-10 участников:</b>\n\n"
             for i, user in enumerate(top_users, start=1):
                 name = user.get("name", "Без имени")
-                username = user.get("username", "")
+                username = user.get("username", "").strip()
+                user_id = user.get("user_id", "")
+                # Формируем ссылку: если есть username, используем его, иначе user_id
                 if username:
-                    clean_username = username.lstrip("@").strip()
-                    name = f'<a href="https://t.me/{clean_username}">{name}</a>'
-                text += f"{i}. {name} — {user['count']} заявок, {user['total']} баллов\n"
+                    clean_username = username.lstrip("@")
+                    link = f"https://t.me/{clean_username}"
+                else:
+                    link = f"tg://user?id={user_id}"
+                text += f"{i}. <a href='{link}'>{name}</a> — {user['count']} заявок, {user['total']} баллов\n"
 
         await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="HTML")
 
@@ -139,7 +147,6 @@ async def receive_score(message: types.Message, state: FSMContext):
     await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
     await state.finish()
     pending_scores.pop(admin_id, None)
-
 
 async def send_news_to_users(message: types.Message, state: FSMContext):
     await state.finish()

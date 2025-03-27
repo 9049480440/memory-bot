@@ -1,4 +1,4 @@
-#main.py
+# main.py
 
 import logging
 import os
@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import Update
-from aiogram.dispatcher.middlewares import BaseMiddleware  # Добавляем BaseMiddleware
+from aiogram.dispatcher.middlewares import BaseMiddleware
 
 from config import BOT_TOKEN
 from handlers import (
@@ -17,7 +17,6 @@ from handlers import (
     fallback_handler,
     admin_handlers
 )
-from handlers.application_handlers import incomplete_users
 from services.sheets import send_reminders_to_inactive
 
 # Настройка логов с большей детализацией
@@ -44,7 +43,6 @@ class LoggingMiddleware(BaseMiddleware):
         elif update.callback_query:
             logger.info(f"Получен callback от user_id {update.callback_query.from_user.id}: {update.callback_query.data}")
 
-# Регистрируем middleware
 dp.middleware.setup(LoggingMiddleware())
 
 # Регистрируем обработчики
@@ -58,29 +56,37 @@ async def check_incomplete_users():
     while True:
         now = datetime.datetime.now()
         current_time = now.time()
-        # Определяем границы времени (22:30 и 08:00)
         night_start = datetime.time(22, 30)  # 22:30
         morning_end = datetime.time(8, 0)    # 08:00
-
-        # Проверяем, находится ли текущее время в "ночном" диапазоне
         is_night = (current_time >= night_start or current_time < morning_end)
 
-        for user_id, started_at in list(incomplete_users.items()):
-            delta = now - started_at
-            # Проверяем, прошло ли больше 1 часа, но меньше 2 часов
-            if delta > datetime.timedelta(hours=1) and delta < datetime.timedelta(hours=2):
-                if not is_night:  # Отправляем напоминание только если не ночь
-                    try:
-                        await bot.send_message(user_id, "👋 Вы начали подавать заявку, но не закончили. Продолжим?")
-                        logger.info(f"Напоминание отправлено пользователю {user_id} в {now}")
-                    except Exception as e:
-                        logger.error(f"Ошибка отправки напоминания пользователю {user_id}: {e}")
-                else:
-                    logger.info(f"Напоминание для пользователя {user_id} отложено, так как сейчас ночь (время: {current_time})")
-            # Удаляем заявку, если прошло больше 1 дня
-            if delta > datetime.timedelta(days=1):
-                incomplete_users.pop(user_id, None)
-                logger.info(f"Заявка пользователя {user_id} удалена, так как прошло больше 1 дня")
+        # Больше не используем incomplete_users, так как состояние хранится в Google Таблицах
+        # Проверяем пользователей в состоянии подачи заявки
+        try:
+            all_rows = state_sheet.get_all_values()
+            for row in all_rows[1:]:
+                user_id = row[0]
+                state = row[1] if len(row) > 1 else "main_menu"
+                data_str = row[2] if len(row) > 2 else ""
+                data = json.loads(data_str) if data_str else None
+
+                if state.startswith("application_step") and data and "start_time" in data:
+                    start_time = datetime.datetime.fromisoformat(data["start_time"])
+                    delta = now - start_time
+                    if delta > datetime.timedelta(hours=1) and delta < datetime.timedelta(hours=2):
+                        if not is_night:
+                            try:
+                                await bot.send_message(user_id, "👋 Вы начали подавать заявку, но не закончили. Продолжим?")
+                                logger.info(f"Напоминание отправлено пользователю {user_id} в {now}")
+                            except Exception as e:
+                                logger.error(f"Ошибка отправки напоминания пользователю {user_id}: {e}")
+                        else:
+                            logger.info(f"Напоминание для пользователя {user_id} отложено, так как сейчас ночь (время: {current_time})")
+                    if delta > datetime.timedelta(days=1):
+                        clear_user_state(user_id)
+                        logger.info(f"Заявка пользователя {user_id} удалена, так как прошло больше 1 дня")
+        except Exception as e:
+            logger.error(f"[ERROR] Ошибка в check_incomplete_users: {e}")
 
         await asyncio.sleep(3600)  # Каждые 60 минут
 

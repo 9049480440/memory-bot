@@ -15,10 +15,8 @@ def main_menu_markup(user_id=None):
         types.InlineKeyboardButton("📨 Подать заявку", callback_data="apply"),
         types.InlineKeyboardButton("⭐️ Мои баллы", callback_data="scores"),
     )
-
     if user_id and int(user_id) in ADMIN_IDS:
         markup.add(types.InlineKeyboardButton("🛡 Админ-панель", callback_data="admin_panel"))
-
     return markup
 
 # Команда /start
@@ -33,13 +31,14 @@ async def start(message: types.Message, state: FSMContext):
 # Обработка кнопок меню
 async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
+    user_id = callback.from_user.id
 
     if callback.data == "info":
         await callback.message.edit_text(
             "📍 Конкурс приурочен к 80-летию Победы и Году Защитника Отечества.\n\n"
             "Участвуйте, публикуйте посты у памятников, копите баллы и получайте призы!\n\n"
             "📄 Подробнее: https://docs.google.com/document/d/your-link-here",
-            reply_markup=main_menu_markup(callback.from_user.id)
+            reply_markup=main_menu_markup(user_id)
         )
 
     elif callback.data == "apply":
@@ -47,17 +46,17 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
         await start_application(callback.message)
 
     elif callback.data == "scores":
-        user_id = str(callback.from_user.id)
-        results, total = get_user_scores(user_id)
+        user_id_str = str(user_id)
+        results, total = get_user_scores(user_id_str)
         if not results:
             text = "У вас пока нет заявок. Подайте первую — и получите баллы!"
         else:
             text = "Ваши заявки:\n\n" + "\n\n".join(results) + f"\n\n🌟 Всего баллов: {total}"
 
-        await callback.message.edit_text(text, reply_markup=main_menu_markup(callback.from_user.id))
+        await callback.message.edit_text(text, reply_markup=main_menu_markup(user_id))
 
     elif callback.data == "admin_panel":
-        if is_admin(callback.from_user.id):
+        if is_admin(user_id):
             await callback.message.edit_text("🛡 Админ-панель:", reply_markup=admin_menu_markup())
         else:
             await callback.message.answer("❌ У вас нет прав доступа.")

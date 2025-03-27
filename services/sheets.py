@@ -78,7 +78,7 @@ def export_rating_to_sheet():
         for user in top_users:
             user_id = user.get("user_id", "")
             name = user.get("name", "")
-            username = user.get("username", "")
+            username = user.get("username", "").strip()
             link = f"https://t.me/{username.lstrip('@')}" if username else ""
             total = user.get("total", 0)
 
@@ -91,6 +91,7 @@ def export_rating_to_sheet():
             ])
     except Exception as e:
         print(f"[ERROR] export_rating_to_sheet: {e}")
+
 
 
 

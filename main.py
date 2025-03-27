@@ -43,7 +43,7 @@ fallback_handler.register_fallback(dp)
 
 # Webhook путь
 WEBHOOK_PATH = '/webhook'
-WEBHOOK_URL = f"https://memory-bot.onrender.com{WEBHOOK_PATH}"  # Замени на свой домен Render
+WEBHOOK_URL = f"https://memory-bot.onrender.com{WEBHOOK_PATH}"  # Домен уже правильный!
 
 # Настройки сервера
 PORT = int(os.getenv('PORT', 8000))  # Render использует переменную PORT, по умолчанию 8000

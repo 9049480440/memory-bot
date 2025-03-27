@@ -34,6 +34,9 @@ def add_or_update_user(user):
         user_ids = [row[0] for row in all_users[1:]]
         if user_id in user_ids:
             idx = user_ids.index(user_id) + 2
+            # Обновляем username и имя, если они изменились
+            sheet.update_cell(idx, 2, user.username or '')
+            sheet.update_cell(idx, 3, user.full_name)
             sheet.update_cell(idx, 4, '=TODAY()')
         else:
             new_row = [
@@ -77,7 +80,11 @@ def export_rating_to_sheet():
             user_id = user.get("user_id", "")
             name = user.get("name", "")
             username = user.get("username", "").strip()
-            link = f"https://t.me/{username.lstrip('@')}" if username else "Нет username"
+            # Формируем ссылку: если есть username, используем его, иначе user_id
+            if username:
+                link = f"https://t.me/{username.lstrip('@')}"
+            else:
+                link = f"tg://user?id={user_id}"
             total = user.get("total", 0)
 
             sheet_app.append_row([

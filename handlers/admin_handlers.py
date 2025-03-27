@@ -24,7 +24,7 @@ async def admin_start(message: types.Message):
         return
     await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
 
-# Панель админа (кнопки)
+# Панель админа
 async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     if user_id not in ADMIN_IDS:
@@ -36,7 +36,10 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     elif callback.data == "admin_set_scores":
         await callback.message.answer("🎯 Для начисления баллов нажмите на заявку и подтвердите.")
     elif callback.data == "admin_send_news":
-        await callback.message.answer("📢 Пришлите сообщение, которое хотите разослать участникам:", reply_markup=cancel_news_markup())
+        await callback.message.answer(
+            "📢 Пришлите сообщение, которое хотите разослать участникам:",
+            reply_markup=cancel_news_markup()
+        )
         await AdminStates.waiting_for_news.set()
     elif callback.data == "admin_view_rating":
         await callback.message.answer("📊 Рейтинг можно посмотреть в таблице: https://docs.google.com/spreadsheets/d/your-link")
@@ -46,12 +49,13 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     else:
         await callback.message.answer("🤷 Неизвестная команда.")
 
-# Отмена рассылки
+# Кнопка отмены
 def cancel_news_markup():
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("❌ Отменить рассылку", callback_data="cancel_news"))
     return markup
 
+# Отмена рассылки
 async def cancel_news(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
     await callback.message.edit_text("✉️ Рассылка отменена.")
@@ -82,7 +86,7 @@ async def handle_news_input(message: types.Message, state: FSMContext):
     await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
     await state.finish()
 
-# Подтверждение баллов
+# Подтверждение / отклонение заявок
 async def handle_approve(callback: types.CallbackQuery):
     if callback.from_user.id not in ADMIN_IDS:
         await callback.message.answer("❌ Нет доступа.")
@@ -90,7 +94,7 @@ async def handle_approve(callback: types.CallbackQuery):
 
     if callback.data.startswith("approve_"):
         submission_id = callback.data.split("approve_")[1]
-        score = 3  # Можно сделать динамическим
+        score = 3
         success = set_score_and_notify_user(submission_id, score)
         if success:
             await callback.message.edit_text("✅ Заявка подтверждена и баллы начислены.")
@@ -106,5 +110,5 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_start, commands=["admin"], state="*")
     dp.register_callback_query_handler(handle_admin_panel, text_startswith="admin_", state="*")
     dp.register_callback_query_handler(cancel_news, text="cancel_news", state=AdminStates.waiting_for_news)
-    dp.register_message_handler(handle_news_input, state=AdminStates.waiting_for_news, content_types=types.ContentTypes.TEXT)
+    dp.register_message_handler(handle_news_input, state=AdminStates.waiting_for_news)
 

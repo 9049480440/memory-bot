@@ -4,6 +4,7 @@ import logging
 import os
 import asyncio
 import datetime
+import json  # Добавляем импорт для работы с JSON
 from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -17,7 +18,7 @@ from handlers import (
     fallback_handler,
     admin_handlers
 )
-from services.sheets import send_reminders_to_inactive
+from services.sheets import send_reminders_to_inactive, state_sheet  # Импортируем state_sheet
 
 # Настройка логов с большей детализацией
 logging.basicConfig(
@@ -60,9 +61,13 @@ async def check_incomplete_users():
         morning_end = datetime.time(8, 0)    # 08:00
         is_night = (current_time >= night_start or current_time < morning_end)
 
-        # Больше не используем incomplete_users, так как состояние хранится в Google Таблицах
         # Проверяем пользователей в состоянии подачи заявки
         try:
+            if state_sheet is None:
+                logger.error("[ERROR] Лист 'UserState' не найден.")
+                await asyncio.sleep(3600)
+                continue
+
             all_rows = state_sheet.get_all_values()
             for row in all_rows[1:]:
                 user_id = row[0]

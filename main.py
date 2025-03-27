@@ -48,8 +48,8 @@ class LoggingMiddleware(BaseMiddleware):
 dp.middleware.setup(LoggingMiddleware())
 
 # Регистрируем обработчики
-user_handlers.register_handlers(dp)
-application_handlers.register_application_handlers(dp)
+# user_handlers.register_handlers(dp)  # Закомментируем
+# application_handlers.register_application_handlers(dp)  # Закомментируем
 admin_handlers.register_admin_handlers(dp)
 fallback_handler.register_fallback(dp)
 

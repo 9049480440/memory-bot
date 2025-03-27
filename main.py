@@ -4,7 +4,7 @@ import logging
 import os
 import asyncio
 import datetime
-import json  # Добавляем импорт для работы с JSON
+import json
 from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -18,25 +18,25 @@ from handlers import (
     fallback_handler,
     admin_handlers
 )
-from services.sheets import send_reminders_to_inactive, state_sheet  # Импортируем state_sheet
+from services.sheets import send_reminders_to_inactive, state_sheet, clear_user_state
 
-# Настройка логов с большей детализацией
+# Настройка логов
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),  # Вывод в консоль
-        logging.FileHandler('bot.log')  # Сохранение в файл
+        logging.StreamHandler(),
+        logging.FileHandler('bot.log')
     ]
 )
 logger = logging.getLogger(__name__)
 
-# Инициализация бота и хранилища
+# Бот
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 
-# Middleware для логирования всех обновлений
+# Middleware логов
 class LoggingMiddleware(BaseMiddleware):
     async def on_process_update(self, update: Update, data: dict):
         if update.message:
@@ -46,22 +46,21 @@ class LoggingMiddleware(BaseMiddleware):
 
 dp.middleware.setup(LoggingMiddleware())
 
-# Регистрируем обработчики
+# Регистрация хендлеров
 user_handlers.register_handlers(dp)
 application_handlers.register_application_handlers(dp)
 admin_handlers.register_admin_handlers(dp)
 fallback_handler.register_fallback(dp)
 
-# 🔔 Фоновая задача: напоминания о незавершённых заявках
+# 🔔 Фоновая задача: незавершённые заявки
 async def check_incomplete_users():
     while True:
         now = datetime.datetime.now()
         current_time = now.time()
-        night_start = datetime.time(22, 30)  # 22:30
-        morning_end = datetime.time(8, 0)    # 08:00
+        night_start = datetime.time(22, 30)
+        morning_end = datetime.time(8, 0)
         is_night = (current_time >= night_start or current_time < morning_end)
 
-        # Проверяем пользователей в состоянии подачи заявки
         try:
             if state_sheet is None:
                 logger.error("[ERROR] Лист 'UserState' не найден.")
@@ -78,24 +77,34 @@ async def check_incomplete_users():
                 if state.startswith("application_step") and data and "start_time" in data:
                     start_time = datetime.datetime.fromisoformat(data["start_time"])
                     delta = now - start_time
+
                     if delta > datetime.timedelta(hours=1) and delta < datetime.timedelta(hours=2):
                         if not is_night:
                             try:
                                 await bot.send_message(user_id, "👋 Вы начали подавать заявку, но не закончили. Продолжим?")
-                                logger.info(f"Напоминание отправлено пользователю {user_id} в {now}")
+                                logger.info(f"Напоминание отправлено пользователю {user_id}")
                             except Exception as e:
                                 logger.error(f"Ошибка отправки напоминания пользователю {user_id}: {e}")
                         else:
-                            logger.info(f"Напоминание для пользователя {user_id} отложено, так как сейчас ночь (время: {current_time})")
+                            logger.info(f"Напоминание отложено для {user_id}, сейчас ночь")
+
                     if delta > datetime.timedelta(days=1):
                         clear_user_state(user_id)
-                        logger.info(f"Заявка пользователя {user_id} удалена, так как прошло больше 1 дня")
+                        try:
+                            await bot.send_message(
+                                user_id,
+                                "⏳ Ваша заявка была удалена, так как не была завершена в течение суток.\nВы можете начать заново с помощью кнопки ниже.",
+                            )
+                            logger.info(f"Удалена незавершённая заявка у пользователя {user_id}")
+                        except Exception as e:
+                            logger.error(f"Ошибка при уведомлении об удалении заявки {user_id}: {e}")
+
         except Exception as e:
             logger.error(f"[ERROR] Ошибка в check_incomplete_users: {e}")
 
-        await asyncio.sleep(3600)  # Каждые 60 минут
+        await asyncio.sleep(3600)
 
-# 🔔 Фоновая задача: напоминания неактивным участникам
+# 🔔 Фоновая задача: неактивные участники
 async def check_inactive_users():
     while True:
         now = datetime.datetime.now()
@@ -111,7 +120,7 @@ async def check_inactive_users():
         seconds_to_next_check = (next_check - now).total_seconds()
         await asyncio.sleep(seconds_to_next_check)
 
-# Запуск бота
+# Старт
 async def on_startup(_):
     logger.info("Бот запускается с polling...")
     asyncio.create_task(check_incomplete_users())
@@ -120,3 +129,4 @@ async def on_startup(_):
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+

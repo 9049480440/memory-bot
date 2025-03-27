@@ -1,7 +1,8 @@
 # handlers/gpt_handler.py
 
 from openai import OpenAI
-from config import OPENAI_API_KEY
+from config import OPENAI_API_KEY, ADMINS  # Добавляем импорт ADMINS
+from handlers.admin_handlers import send_admin_panel  # Предполагаемый импорт админ-панели
 import logging
 
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -30,17 +31,22 @@ rules_summary = """
 Отвечай доброжелательно, кратко, по делу. Помогай участникам разобраться в правилах.
 """
 
-async def ask_gpt(message_text):
+async def ask_gpt(message):
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": rules_summary},
-                {"role": "user", "content": message_text}
+                {"role": "user", "content": message.text}
             ],
             max_tokens=400
         )
-        return response.choices[0].message.content
+        answer = response.choices[0].message.content
+        # Отправляем ответ пользователю
+        await message.answer(answer)
+        # Если это админ, показываем админ-панель
+        if message.from_user.id in ADMINS:
+            await send_admin_panel(message)  # Предполагаемая функция админ-панели
     except Exception as e:
         logging.error(f"GPT ERROR: {e}")
-        return "Извините, я пока не могу ответить. Попробуйте позже."
+        await message.answer("Извините, я пока не могу ответить. Попробуйте позже.")

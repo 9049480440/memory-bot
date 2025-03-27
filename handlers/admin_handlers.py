@@ -41,6 +41,9 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=cancel_news_markup()
         )
         await AdminStates.waiting_for_news.set()
+        logging.info(f"Состояние установлено для user_id {user_id}: AdminStates.waiting_for_news")
+        current_state = await state.get_state()  # Проверяем, какое состояние установлено
+        logging.info(f"Текущее состояние для user_id {user_id}: {current_state}")
     elif callback.data == "admin_view_rating":
         await callback.message.answer("📊 Рейтинг можно посмотреть в таблице: https://docs.google.com/spreadsheets/d/your-link")
     elif callback.data == "admin_export_rating":
@@ -63,6 +66,7 @@ async def cancel_news(callback: types.CallbackQuery, state: FSMContext):
 
 # Обработка текста рассылки
 async def handle_news_input(message: types.Message, state: FSMContext):
+    logging.info(f"handle_news_input вызван для user_id {message.from_user.id}")
     if message.from_user.id not in ADMIN_IDS:
         await message.answer("❌ У вас нет доступа.")
         return
@@ -111,4 +115,3 @@ def register_admin_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(handle_admin_panel, text_startswith="admin_", state="*")
     dp.register_callback_query_handler(cancel_news, text="cancel_news", state=AdminStates.waiting_for_news)
     dp.register_message_handler(handle_news_input, state=AdminStates.waiting_for_news)
-

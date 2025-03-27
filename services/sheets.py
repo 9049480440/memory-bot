@@ -7,8 +7,7 @@ import time
 import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
-# 🔄 Обновление баллов в Активности (по сумме заявок)
-from services.sheets import get_user_scores  # в начале файла, если нужно
+
 
 # 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]

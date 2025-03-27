@@ -1,12 +1,27 @@
 # handlers/fallback_handler.py
 
 from aiogram import types, Dispatcher
+from aiogram.dispatcher.filters import BoundFilter
 from aiogram.dispatcher.filters.state import any_state
 from handlers.gpt_handler import ask_gpt
 from config import ADMIN_IDS
 from services.common import admin_menu_markup, main_menu_markup
-from handlers.admin_handlers import AdminStates  # Импортируем AdminStates для исключения состояния
+from handlers.admin_handlers import AdminStates  # Импортируем AdminStates
 import logging
+
+# Кастомный фильтр для исключения состояния AdminStates.waiting_for_news
+class NotWaitingForNewsFilter(BoundFilter):
+    key = 'not_waiting_for_news'
+
+    def __init__(self, not_waiting_for_news: bool = True):
+        self.not_waiting_for_news = not_waiting_for_news
+
+    async def check(self, message: types.Message, state: 'FSMContext' = None) -> bool:
+        if not self.not_waiting_for_news:
+            return True  # Если фильтр не активен, пропускаем
+        current_state = await state.get_state()
+        # Проверяем, что текущее состояние НЕ AdminStates:waiting_for_news
+        return current_state != AdminStates.waiting_for_news.state
 
 async def handle_unknown(message: types.Message):
     user_id = message.from_user.id
@@ -30,10 +45,12 @@ async def handle_unknown(message: types.Message):
         await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
 
 def register_fallback(dp: Dispatcher):
-    # Регистрируем обработчик, исключая состояние AdminStates.waiting_for_news
+    # Регистрируем фильтр
+    dp.filters_factory.bind(NotWaitingForNewsFilter)
+    # Регистрируем обработчик с кастомным фильтром
     dp.register_message_handler(
         handle_unknown,
         content_types=types.ContentTypes.ANY,
         state=any_state,  # Для всех состояний
-        state_not=AdminStates.waiting_for_news  # Кроме AdminStates.waiting_for_news
+        not_waiting_for_news=True  # Применяем фильтр
     )

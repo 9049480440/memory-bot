@@ -67,24 +67,25 @@ def update_user_score_in_activity(user_id):
         print(f"[ERROR] update_user_score_in_activity: {e}")
 
 
-# 📤 Экспорт рейтинга
-
+# 📤 Экспорт рейтинга в Google Таблицу
 def export_rating_to_sheet():
     try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Рейтинг")
         top_users = get_top_users(limit=100)
 
         sheet_app.clear()
-        sheet_app.append_row(["user_id", "имя", "сколько_баллов"])
+        sheet_app.append_row(["user_id", "имя", "username", "сколько_баллов"])
 
         for user in top_users:
             sheet_app.append_row([
                 user.get("user_id", ""),
                 user.get("name", ""),
+                user.get("username", ""),
                 user.get("total", 0)
             ])
     except Exception as e:
         print(f"[ERROR] export_rating_to_sheet: {e}")
+
 
 # ✅ Подача заявки + возврат ID
 

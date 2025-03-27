@@ -3,7 +3,6 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
-from config import ADMIN_IDS
 from services.sheets import (
     get_submission_stats,
     set_score_and_notify_user,
@@ -12,7 +11,7 @@ from services.sheets import (
     update_user_score_in_activity,
     export_rating_to_sheet,
 )
-from services.common import main_menu_markup  # Импортируем main_menu_markup
+from services.common import main_menu_markup, is_admin, admin_menu_markup  # Импортируем из common.py
 
 class ScoreState(StatesGroup):
     waiting_for_score = State()
@@ -21,20 +20,6 @@ class NewsState(StatesGroup):
     waiting_for_news = State()
 
 pending_scores = {}
-
-def is_admin(user_id):
-    return user_id in ADMIN_IDS
-
-def admin_menu_markup():
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton("📥 Посмотреть заявки", callback_data="admin_view_apps"),
-        types.InlineKeyboardButton("🎯 Проставить баллы", callback_data="admin_set_scores"),
-        types.InlineKeyboardButton("📤 Отправить новость", callback_data="admin_send_news"),
-        types.InlineKeyboardButton("📊 Посмотреть рейтинг", callback_data="admin_view_rating"),
-        types.InlineKeyboardButton("📈 Выгрузить рейтинг", callback_data="admin_export_rating")
-    )
-    return markup
 
 async def send_admin_panel(message: types.Message):
     if is_admin(message.from_user.id):

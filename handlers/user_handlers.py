@@ -16,7 +16,7 @@ def main_menu_markup(user_id=None):
         types.InlineKeyboardButton("⭐️ Мои баллы", callback_data="scores"),
     )
 
-    if user_id in ADMIN_IDS:
+    if user_id and int(user_id) in ADMIN_IDS:
         markup.add(types.InlineKeyboardButton("🛡 Админ-панель", callback_data="admin_panel"))
 
     return markup

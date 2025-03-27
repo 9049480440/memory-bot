@@ -3,6 +3,7 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
+from aiogram.utils.exceptions import MessageNotModified  # Добавляем импорт
 from services.sheets import (
     get_submission_stats,
     set_score_and_notify_user,
@@ -10,8 +11,11 @@ from services.sheets import (
     get_top_users,
     update_user_score_in_activity,
     export_rating_to_sheet,
+    save_user_state,
+    get_user_state,
+    clear_user_state
 )
-from services.common import main_menu_markup, is_admin, admin_menu_markup  # Импортируем из common.py
+from services.common import main_menu_markup, is_admin, admin_menu_markup
 
 class ScoreState(StatesGroup):
     waiting_for_score = State()
@@ -23,33 +27,46 @@ pending_scores = {}
 
 async def send_admin_panel(message: types.Message):
     if is_admin(message.from_user.id):
-        await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+        msg = await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+        save_user_state(message.from_user.id, "admin_panel", None, msg.message_id)
 
 async def admin_start(message: types.Message, state: FSMContext):
     if is_admin(message.from_user.id):
         await state.finish()
-        await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+        msg = await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+        save_user_state(message.from_user.id, "admin_panel", None, msg.message_id)
     else:
         await message.answer("❌ У вас нет доступа к админ-панели.")
 
 async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
-    if not is_admin(callback.from_user.id):
+    user_id = callback.from_user.id
+    if not is_admin(user_id):
         await callback.message.answer("❌ У вас нет доступа.")
         return
 
     if callback.data == "admin_view_apps":
         count, unique_users = get_submission_stats()
-        await callback.message.edit_text(
-            f"📬 Подано {count} заявок от {unique_users} участников.",
-            reply_markup=admin_menu_markup()
-        )
+        text = f"📬 Подано {count} заявок от {unique_users} участников."
+        try:
+            await callback.message.edit_text(
+                text,
+                reply_markup=admin_menu_markup()
+            )
+        except MessageNotModified:
+            pass  # Игнорируем ошибку, если текст не изменился
+        save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
     elif callback.data == "admin_set_scores":
-        await callback.message.edit_text(
-            "⚙️ Оценка заявок происходит автоматически при поступлении.",
-            reply_markup=admin_menu_markup()
-        )
+        text = "⚙️ Оценка заявок происходит автоматически при поступлении."
+        try:
+            await callback.message.edit_text(
+                text,
+                reply_markup=admin_menu_markup()
+            )
+        except MessageNotModified:
+            pass
+        save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
     elif callback.data == "admin_send_news":
         markup = types.InlineKeyboardMarkup()
@@ -58,6 +75,7 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             "📢 Пришлите сообщение, которое хотите разослать участникам:",
             reply_markup=markup
         )
+        save_user_state(user_id, "admin_news", None, callback.message.message_id)
         await NewsState.waiting_for_news.set()
 
     elif callback.data == "admin_view_rating":
@@ -70,42 +88,69 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             for i, user in enumerate(top_users, start=1):
                 name = user.get("name", "Без имени")
                 username = user.get("username", "").strip()
-                user_id = user.get("user_id", "")
+                user_id_str = user.get("user_id", "")
                 if username:
                     clean_username = username.lstrip("@")
                     link = f"https://t.me/{clean_username}"
                 else:
-                    link = f"tg://user?id={user_id}"
+                    link = f"tg://user?id={user_id_str}"
                 text += f"{i}. <a href='{link}'>{name}</a> — {user['count']} заявок, {user['total']} баллов\n"
 
-        await callback.message.edit_text(text, reply_markup=admin_menu_markup(), parse_mode="HTML")
+        try:
+            await callback.message.edit_text(
+                text,
+                reply_markup=admin_menu_markup(),
+                parse_mode="HTML"
+            )
+        except MessageNotModified:
+            pass
+        save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
     elif callback.data == "admin_export_rating":
         export_rating_to_sheet()
-        await callback.message.edit_text("✅ Рейтинг выгружен в таблицу!", reply_markup=admin_menu_markup())
+        try:
+            await callback.message.edit_text(
+                "✅ Рейтинг выгружен в таблицу!",
+                reply_markup=admin_menu_markup()
+            )
+        except MessageNotModified:
+            pass
+        save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
     elif callback.data == "cancel_admin_news":
         await state.finish()
-        await callback.message.edit_text("❌ Рассылка отменена.", reply_markup=admin_menu_markup())
+        clear_user_state(user_id)
+        try:
+            await callback.message.edit_text(
+                "❌ Рассылка отменена.",
+                reply_markup=admin_menu_markup()
+            )
+        except MessageNotModified:
+            pass
+        save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
 async def handle_approve(callback: types.CallbackQuery, state: FSMContext):
-    if not is_admin(callback.from_user.id):
+    user_id = callback.from_user.id
+    if not is_admin(user_id):
         return
 
     submission_id = callback.data.split("_", 1)[1]
-    pending_scores[callback.from_user.id] = submission_id
+    pending_scores[user_id] = submission_id
 
     await callback.message.edit_reply_markup()
-    await callback.message.answer("Введите количество баллов, которые вы хотите назначить:")
+    msg = await callback.message.answer("Введите количество баллов, которые вы хотите назначить:")
+    save_user_state(user_id, "waiting_for_score", {"submission_id": submission_id}, msg.message_id)
     await ScoreState.waiting_for_score.set()
 
 async def handle_reject(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
     await callback.message.edit_reply_markup()
     await callback.message.answer("Заявка отклонена. Пользователь не будет уведомлён.")
-    await callback.message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+    msg = await callback.message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+    save_user_state(user_id, "admin_panel", None, msg.message_id)
 
 async def receive_score(message: types.Message, state: FSMContext):
-    admin_id = message.from_user.id
+    user_id = message.from_user.id
     score_text = message.text.strip()
 
     if not score_text.isdigit():
@@ -113,7 +158,7 @@ async def receive_score(message: types.Message, state: FSMContext):
         return
 
     score = int(score_text)
-    submission_id = pending_scores.get(admin_id)
+    submission_id = pending_scores.get(user_id)
 
     if not submission_id:
         await message.answer("Что-то пошло не так. Повторите подтверждение заявки.")
@@ -124,18 +169,20 @@ async def receive_score(message: types.Message, state: FSMContext):
     result = set_score_and_notify_user(submission_id, score)
 
     if result:
-        user_id = submission_id.split("_")[0]
-        update_user_score_in_activity(user_id)
+        user_id_str = submission_id.split("_")[0]
+        update_user_score_in_activity(user_id_str)
         await message.answer("✅ Баллы записаны, участник уведомлён.")
     else:
         await message.answer("⚠️ Не удалось обновить баллы. Возможно, заявка не найдена.")
 
     await send_admin_panel(message)
     await state.finish()
-    pending_scores.pop(admin_id, None)
+    pending_scores.pop(user_id, None)
 
 async def send_news_to_users(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
     await state.finish()
+    clear_user_state(user_id)
     users = get_all_user_ids()
     sent = 0
     for user_id in users:
@@ -151,11 +198,21 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
             print(f"[ERROR] Не удалось отправить {user_id}: {e}")
 
     await message.answer(f"✅ Рассылка завершена. Отправлено {sent} пользователей.")
-    await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+    msg = await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+    save_user_state(user_id, "admin_panel", None, msg.message_id)
 
 async def cancel_news(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
     await state.finish()
-    await callback.message.edit_text("❌ Рассылка отменена.", reply_markup=admin_menu_markup())
+    clear_user_state(user_id)
+    try:
+        await callback.message.edit_text(
+            "❌ Рассылка отменена.",
+            reply_markup=admin_menu_markup()
+        )
+    except MessageNotModified:
+        pass
+    save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
 def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_start, commands=["admin"], state="*")

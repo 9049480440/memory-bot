@@ -9,7 +9,7 @@ import datetime
 
 from services.sheets import submit_application
 from config import ADMIN_IDS
-from handlers.user_handlers import main_menu_markup  # 👈 чтобы показать меню после заявки
+from common import main_menu_markup
 
 # Состояния анкеты
 class ApplicationState(StatesGroup):

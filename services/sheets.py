@@ -8,6 +8,7 @@ import datetime
 from oauth2client.service_account import ServiceAccountCredentials
 from config import SPREADSHEET_ID, ACTIVITY_SHEET_NAME
 import logging
+from services.common import main_menu_markup  # Импортируем main_menu_markup
 
 # 🔐 Авторизация Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -214,7 +215,8 @@ def send_reminders_to_inactive(bot):
             bot.send_message(
                 user_id,
                 f"Привет, {username or 'участник'}! Ты не подавал заявки уже {days_since} дней. "
-                "Вернись в конкурс 'Эстафета Победы' и заработай баллы! Подай заявку через /start."
+                "Вернись в конкурс 'Эстафета Победы' и заработай баллы! Подай заявку через /start.",
+                reply_markup=main_menu_markup(user_id=user_id)
             )
             print(f"[INFO] Напоминание отправлено {user_id}")
         except Exception as e:
@@ -262,14 +264,13 @@ def set_score_and_notify_user(submission_id: str, score: int):
 # 📬 Уведомление участнику
 async def send_score_notification(user_id: int, score: int):
     from main import bot
-    from handlers.user_handlers import main_menu  # Импортируем главное меню
     try:
         await bot.send_message(
             user_id,
             f"🎉 Ваша заявка подтверждена!\n"
             f"Вам начислено {score} балл(ов).\n"
             f"Поздравляем и желаем удачи — вы на пути к победе! 💪",
-            reply_markup=main_menu()  # Добавляем главное меню
+            reply_markup=main_menu_markup(user_id=user_id)
         )
         logging.info(f"[INFO] Уведомление отправлено пользователю {user_id}")
     except Exception as e:
@@ -306,7 +307,7 @@ def get_top_users(limit=10):
             if len(row) >= 2:
                 user_id = row[0]
                 username = row[1].strip()
-                activity_usernames[user_id] = username  # Сохраняем даже пустые
+                activity_usernames[user_id] = username
 
     stats = {}
 

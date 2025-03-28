@@ -1,3 +1,4 @@
+
 # main.py
 
 import logging
@@ -48,8 +49,8 @@ class LoggingMiddleware(BaseMiddleware):
 dp.middleware.setup(LoggingMiddleware())
 
 # Регистрируем обработчики
-# user_handlers.register_handlers(dp)  # Закомментируем
-# application_handlers.register_application_handlers(dp)  # Закомментируем
+user_handlers.register_handlers(dp)
+application_handlers.register_application_handlers(dp)
 admin_handlers.register_admin_handlers(dp)
 fallback_handler.register_fallback(dp)
 
@@ -83,7 +84,7 @@ async def check_incomplete_users():
 
         try:
             if state_sheet is None:
-                logger.error("[ERROR] Лист 'UserState' не найден.")
+                loggererror("[ERROR] Лист 'UserState' не найден.")
                 await asyncio.sleep(3600)
                 continue
 

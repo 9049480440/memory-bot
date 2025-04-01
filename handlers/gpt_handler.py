@@ -2,8 +2,9 @@
 
 from openai import OpenAI
 from config import OPENAI_API_KEY, ADMIN_IDS
-from services.common import admin_menu_markup
+from handlers.admin_handlers import send_admin_panel
 import logging
+from aiogram import Dispatcher, types
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -23,25 +24,26 @@ rules_summary = """
 🔍 Если пользователь спрашивает, подходит ли конкретный памятник:
 - Сравни описание с критериями выше
 - Если объект отражает идеи героизма, памяти, труда, защиты Родины — скорее всего, подходит
-- Если сомневаешься, дай вежливый ответ и направь к организатору
+- Если сомневаешься, дай вежный ответ и направь к организатору
 
 🎓 Если не можешь точно оценить памятник:
-- Напиши: “Это может зависеть от контекста. Рекомендую уточнить у организатора конкурса: @sibi_sibi”
+- Напиши: "Это может зависеть от контекста. Рекомендую уточнить у организатора конкурса: @sibi_sibi"
 
 Отвечай доброжелательно, кратко, по делу. Помогай участникам разобраться в правилах.
 """
 
-async def ask_gpt(user_id: int, text: str, bot):
-    # Предварительная фильтрация
-    if len(text.strip()) < 5 or len(text) > 300:
-        await bot.send_message(user_id, "Пожалуйста, уточните вопрос — он слишком короткий или длинный.")
-        return
-
-    if all(char == text[0] for char in text.strip()):  # Пример: "ааааааа"
-        await bot.send_message(user_id, "Вопрос выглядит непонятно. Попробуйте сформулировать иначе.")
-        return
-
+async def ask_gpt(message_or_text):
+    """
+    Обрабатывает запрос к GPT. Может принимать как объект сообщения, так и строку текста.
+    """
     try:
+        if isinstance(message_or_text, str):
+            text = message_or_text
+            user_id = None
+        else:
+            text = message_or_text.text
+            user_id = message_or_text.from_user.id
+            
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -51,13 +53,22 @@ async def ask_gpt(user_id: int, text: str, bot):
             max_tokens=400
         )
         answer = response.choices[0].message.content
-        await bot.send_message(user_id, answer)
-        if user_id in ADMIN_IDS:
-            await bot.send_message(user_id, "🛡 Админ-панель:", reply_markup=admin_menu_markup())
+        
+        # Если передан объект сообщения, отправляем ответ
+        if not isinstance(message_or_text, str):
+            await message_or_text.answer(answer)
+            # Если это админ, показываем админ-панель
+            if user_id in ADMIN_IDS:
+                await send_admin_panel(message_or_text)
+        
+        return answer
     except Exception as e:
-        logging.error(f"[GPT ERROR] {e}")
-        await bot.send_message(user_id, "Извините, я пока не могу ответить. Попробуйте позже.")
+        logging.error(f"GPT ERROR: {e}")
+        if not isinstance(message_or_text, str):
+            await message_or_text.answer("Извините, я пока не могу ответить. Попробуйте позже.")
+        return "Извините, я пока не могу ответить. Попробуйте позже."
 
-def register_gpt_handler(dp):
-    pass  # GPT больше не перехватывает глобально, вызывается вручную
-
+def register_gpt_handler(dp: Dispatcher):
+    @dp.message_handler(lambda message: "?" in message.text)
+    async def handle_gpt_question(message: types.Message):
+        await ask_gpt(message)

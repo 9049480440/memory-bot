@@ -1,4 +1,4 @@
-# admin_handlers.py
+# admin_handlers.py ВЕРСИЯ 10
 
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
@@ -16,13 +16,11 @@ from services.sheets import (
     clear_user_state
 )
 from services.common import main_menu_markup, is_admin, admin_menu_markup
-import logging
 
-# Состояния админа
 class ScoreState(StatesGroup):
     waiting_for_score = State()
 
-class AdminStates(StatesGroup):
+class NewsState(StatesGroup):
     waiting_for_news = State()
 
 pending_scores = {}
@@ -40,18 +38,9 @@ async def admin_start(message: types.Message, state: FSMContext):
     else:
         await message.answer("❌ У вас нет доступа к админ-панели.")
 
-async def cancel_action(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    await state.finish()
-    clear_user_state(user_id)
-    await message.answer("Действие отменено.")
-    await send_admin_panel(message)
-
 async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
     user_id = callback.from_user.id
-    logging.info(f"handle_admin_panel вызван для user_id {user_id} с callback.data: {callback.data}")
-    
     if not is_admin(user_id):
         await callback.message.answer("❌ У вас нет доступа.")
         return
@@ -87,10 +76,7 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=markup
         )
         save_user_state(user_id, "admin_news", None, callback.message.message_id)
-        await AdminStates.waiting_for_news.set()
-        logging.info(f"Состояние установлено для user_id {user_id}: AdminStates.waiting_for_news")
-        current_state = await state.get_state()  # Проверяем, какое состояние установлено
-        logging.info(f"Текущее состояние для user_id {user_id}: {current_state}")
+        await NewsState.waiting_for_news.set()
 
     elif callback.data == "admin_view_rating":
         top_users = get_top_users()
@@ -194,7 +180,6 @@ async def receive_score(message: types.Message, state: FSMContext):
     pending_scores.pop(user_id, None)
 
 async def send_news_to_users(message: types.Message, state: FSMContext):
-    logging.info(f"send_news_to_users вызван для user_id {message.from_user.id} с текстом: {message.text}")
     user_id = message.from_user.id
     await state.finish()
     clear_user_state(user_id)
@@ -210,19 +195,31 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
                 await message.bot.send_message(user_id, message.text, reply_markup=main_menu_markup(user_id=user_id))
             sent += 1
         except Exception as e:
-            logging.warning(f"[ERROR] Не удалось отправить {user_id}: {e}")
+            print(f"[ERROR] Не удалось отправить {user_id}: {e}")
 
     await message.answer(f"✅ Рассылка завершена. Отправлено {sent} пользователей.")
     msg = await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
     save_user_state(user_id, "admin_panel", None, msg.message_id)
 
+async def cancel_news(callback: types.CallbackQuery, state: FSMContext):
+    user_id = callback.from_user.id
+    await state.finish()
+    clear_user_state(user_id)
+    try:
+        await callback.message.edit_text(
+            "❌ Рассылка отменена.",
+            reply_markup=admin_menu_markup()
+        )
+    except MessageNotModified:
+        pass
+    save_user_state(user_id, "admin_panel", None, callback.message.message_id)
+
 def register_admin_handlers(dp: Dispatcher):
     dp.register_message_handler(admin_start, commands=["admin"], state="*")
-    dp.register_message_handler(cancel_action, commands=["cancel"], state="*")
     dp.register_callback_query_handler(handle_admin_panel, text=[
         "admin_view_apps", "admin_set_scores", "admin_send_news", "admin_view_rating", "admin_export_rating", "cancel_admin_news"
     ], state="*")
     dp.register_callback_query_handler(handle_approve, text_startswith="approve_", state="*")
     dp.register_callback_query_handler(handle_reject, text_startswith="reject_", state="*")
     dp.register_message_handler(receive_score, state=ScoreState.waiting_for_score)
-    dp.register_message_handler(send_news_to_users, content_types=types.ContentTypes.ANY, state=AdminStates.waiting_for_news)
+    dp.register_message_handler(send_news_to_users, content_types=types.ContentTypes.ANY, state=NewsState.waiting_for_news)

@@ -124,7 +124,6 @@ async def process_name(message: types.Message, state: FSMContext):
     try:
         submission_id = submit_application(message.from_user, date_text, location, monument_name, link)
         
-        
         if submission_id:
             await message.answer("✅ Ваша заявка принята! Спасибо за участие.")
             msg = await message.answer("👇 Главное меню:", reply_markup=main_menu_markup(message.from_user.id))
@@ -134,7 +133,7 @@ async def process_name(message: types.Message, state: FSMContext):
             save_user_state(user_id, "main_menu", None, msg.message_id)
             await state.finish()
 
-            # Отправляем уведомление администраторам
+            # Отправляем уведомление администраторам с ПОЛНЫМИ данными
             for admin_id in ADMIN_IDS:
                 try:
                     markup = InlineKeyboardMarkup()
@@ -146,7 +145,8 @@ async def process_name(message: types.Message, state: FSMContext):
                         f"📥 Новая заявка:\n"
                         f"👤 {message.from_user.full_name}\n"
                         f"📍 {monument_name}\n"
-                        f"📅 {date_text}, {location}\n"
+                        f"🗓 Дата съемки: {date_text}\n"
+                        f"🏙 Место: {location}\n"
                         f"🔗 {link}"
                     )
                     await message.bot.send_message(admin_id, text, reply_markup=markup)

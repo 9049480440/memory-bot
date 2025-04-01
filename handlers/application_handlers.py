@@ -9,6 +9,7 @@ import datetime
 import json
 import logging
 
+
 from services.sheets import submit_application, save_user_state, get_user_state, clear_user_state
 from config import ADMIN_IDS
 from services.common import main_menu_markup
@@ -117,8 +118,12 @@ async def process_name(message: types.Message, state: FSMContext):
     location = data.get("location", "")
     monument_name = data.get("name", "")
 
+    # Добавляем отладочный вывод
+    logging.info(f"[DEBUG] Отправка заявки: date_text={date_text}, location={location}, monument_name={monument_name}, link={link}")
+
     try:
         submission_id = submit_application(message.from_user, date_text, location, monument_name, link)
+        
         
         if submission_id:
             await message.answer("✅ Ваша заявка принята! Спасибо за участие.")

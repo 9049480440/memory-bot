@@ -10,7 +10,7 @@ from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.types import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.dispatcher.middlewares import BaseMiddleware
-
+from services.sheets import check_sheet_structure, send_reminders_to_inactive
 from config import BOT_TOKEN
 from handlers import (
     user_handlers,
@@ -26,6 +26,15 @@ from services.sheets import (
     save_user_state
 )  # Добавлен import clear_user_state
 from services.common import main_menu_markup
+
+from services.sheets import (
+    send_reminders_to_inactive, 
+    state_sheet, 
+    clear_user_state, 
+    get_all_user_ids, 
+    save_user_state,
+    check_sheet_structure  # Добавьте эту строку
+)
 
 # Настройка логов с большей детализацией
 logging.basicConfig(
@@ -205,6 +214,9 @@ async def check_inactive_users():
 # Запуск бота
 async def on_startup(_):
     logger.info("Бот запускается с polling...")
+    
+    # Добавьте эту строку для проверки структуры таблицы
+    check_sheet_structure()
     
     # Проверка обновления и отправка уведомлений
     is_updated = check_version_update()

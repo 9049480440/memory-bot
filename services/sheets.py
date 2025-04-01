@@ -395,6 +395,17 @@ def get_top_users(limit=10):
     sorted_users = sorted(stats.values(), key=lambda u: u["total"], reverse=True)
     return sorted_users[:limit]
 
+def check_sheet_structure():
+    """Выводит структуру листа 'Заявки' для отладки"""
+    try:
+        sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
+        headers = sheet_app.row_values(1)
+        logger.info("[DEBUG] Структура листа 'Заявки':")
+        for i, header in enumerate(headers):
+            logger.info(f"[DEBUG] Колонка {i+1} (буква {chr(65+i)}): '{header}'")
+    except Exception as e:
+        logger.error(f"[ERROR] Ошибка при проверке структуры: {e}")
+
 # Функции для работы с состоянием пользователей
 def save_user_state(user_id, state, data=None, last_message_id=None):
     """Сохраняет состояние пользователя в Google Таблицах."""

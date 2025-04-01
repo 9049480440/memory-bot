@@ -148,7 +148,7 @@ def submit_application(user, date_text, location, monument_name, link):
     """Сохраняет заявку пользователя в таблицу Заявки"""
     logger.info(f"[DEBUG] submit_application вызвана с параметрами: date_text={date_text}, location={location}, monument_name={monument_name}, link={link}")
     
-       try:
+    try:
         sheet_app = client.open_by_key(SPREADSHEET_ID).worksheet("Заявки")
     except Exception as e:
         logger.error(f"[ERROR] Лист 'Заявки' не найден: {e}")

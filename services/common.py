@@ -27,8 +27,3 @@ def admin_menu_markup():
         InlineKeyboardButton("📈 Выгрузить рейтинг", callback_data="admin_export_rating")
     )
     return markup
-
-# 🔙 Кнопка отмены анкеты (вынесена в общее место)
-cancel_markup = InlineKeyboardMarkup().add(
-    InlineKeyboardButton("🔙 Вернуться в меню", callback_data="cancel_app")
-)

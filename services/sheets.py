@@ -156,16 +156,16 @@ def submit_application(user, date_text, location, monument_name, link):
     submitted_at = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
 
     new_row = [
-        str(user.id),
-        user.username or "",
-        user.full_name,
-        submission_id,
-        link,
-        date_text,
-        location,  # Убедимся, что место всегда добавляется
-        submitted_at,
-        "",
-        ""
+        str(user.id),             # user_id
+        user.username or "",      # username
+        user.full_name,           # имя
+        submission_id,            # заявка_id
+        link,                     # ссылка
+        date_text,                # ответ_1 - дата
+        location,                 # ответ_2 - место
+        submitted_at,             # дата_подачи
+        "",                       # баллы
+        monument_name             # комментарий_админа - имя памятника
     ]
 
     try:

@@ -155,22 +155,25 @@ def submit_application(user, date_text, location, monument_name, link):
     submission_id = f"{user.id}_{int(time.time())}"
     submitted_at = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
 
+    # Строим массив в точном соответствии с порядком колонок в таблице
+    # A         B          C      D           E       F        G        H          I      J
+    # user_id | username | имя | заявка_id | ссылка | ответ_1 | ответ_2 | дата_подачи | баллы | комментарий_админа
     new_row = [
-        str(user.id),             # user_id
-        user.username or "",      # username
-        user.full_name,           # имя
-        submission_id,            # заявка_id
-        link,                     # ссылка
-        date_text,                # ответ_1 - дата
-        location,                 # ответ_2 - место
-        submitted_at,             # дата_подачи
-        "",                       # баллы
-        monument_name             # комментарий_админа - имя памятника
+        str(user.id),             # user_id (A)
+        user.username or "",      # username (B)
+        user.full_name,           # имя (C)
+        submission_id,            # заявка_id (D)
+        link,                     # ссылка (E)
+        date_text,                # ответ_1 (F) - дата съемки
+        location,                 # ответ_2 (G) - город/место
+        submitted_at,             # дата_подачи (H)
+        "",                       # баллы (I)
+        monument_name             # комментарий_админа (J) - название памятника
     ]
 
     try:
         sheet_app.append_row(new_row)
-        logger.info(f"Application submitted successfully: {submission_id}")
+        logger.info(f"Application submitted successfully: {submission_id}, date: {date_text}, location: {location}, monument: {monument_name}")
         return submission_id
     except Exception as e:
         logger.error(f"[ERROR] Не удалось добавить заявку: {e}")

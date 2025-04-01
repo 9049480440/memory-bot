@@ -82,46 +82,106 @@ async def process_date(message: types.Message, state: FSMContext):
         )
         return
     
+    # Получаем текущие данные из стейта
     data = await state.get_data()
+    link = data.get("link", "")
+    
+    # Обновляем данные
     data["date"] = date_text
-    # Сохраняем состояние
-    save_user_state(user_id, "application_step_3", data)
+    await state.update_data(data)
+    
+    # Создаем полную копию данных для Google Sheets
+    full_data = {
+        "link": link,
+        "date": date_text,
+        "start_time": data.get("start_time", datetime.datetime.now().isoformat())
+    }
+    
+    # Логируем для отладки
+    logging.info(f"[DEBUG] Сохранение данных в process_date: {full_data}")
+    
+    # Сохраняем состояние в Google Sheets, обеспечивая синхронизацию данных
+    save_user_state(user_id, "application_step_3", full_data)
     msg = await message.answer(
         "Отлично! Теперь введите место съёмки (город или населенный пункт):", 
         reply_markup=cancel_markup()
     )
-    save_user_state(user_id, "application_step_3", data, msg.message_id)
+    save_user_state(user_id, "application_step_3", full_data, msg.message_id)
     await ApplicationState.waiting_for_location.set()
 
 # Обработка места
 async def process_location(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
+    
+    # Получаем текущие данные из стейта
     data = await state.get_data()
-    data["location"] = message.text
-    # Сохраняем состояние
-    save_user_state(user_id, "application_step_4", data)
+    link = data.get("link", "")
+    date_text = data.get("date", "")
+    location = message.text
+    
+    # Обновляем данные
+    data["location"] = location
+    await state.update_data(data)
+    
+    # Создаем полную копию данных для Google Sheets
+    full_data = {
+        "link": link, 
+        "date": date_text, 
+        "location": location,
+        "start_time": data.get("start_time", datetime.datetime.now().isoformat())
+    }
+    
+    # Логируем для отладки
+    logging.info(f"[DEBUG] Сохранение данных в process_location: {full_data}")
+    
+    # Сохраняем состояние в Google Sheets, обеспечивая синхронизацию данных
+    save_user_state(user_id, "application_step_4", full_data)
     msg = await message.answer(
         "Теперь введите название памятника или мероприятия:", 
         reply_markup=cancel_markup()
     )
-    save_user_state(user_id, "application_step_4", data, msg.message_id)
+    save_user_state(user_id, "application_step_4", full_data, msg.message_id)
     await ApplicationState.waiting_for_name.set()
 
 # Обработка названия и завершение
 async def process_name(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    data = await state.get_data()
-    data["name"] = message.text
-
-    link = data.get("link", "")
-    date_text = data.get("date", "")
-    location = data.get("location", "")
-    monument_name = data.get("name", "")
-
-    # Добавляем отладочный вывод
-    logging.info(f"[DEBUG] Отправка заявки: date_text={date_text}, location={location}, monument_name={monument_name}, link={link}")
+    monument_name = message.text
+    
+    # Получаем состояние напрямую из Google Sheets
+    current_state, state_data, _ = get_user_state(user_id)
+    
+    # Получаем данные из стейта aiogram
+    aiogram_data = await state.get_data()
+    
+    # Логируем для отладки оба источника данных
+    logging.info(f"[DEBUG] Данные из Google Sheets: {state_data}")
+    logging.info(f"[DEBUG] Данные из aiogram state: {aiogram_data}")
+    
+    # Берем данные из наиболее надежного источника с проверкой
+    link = ""
+    date_text = ""
+    location = ""
+    
+    # Проверяем данные в aiogram state
+    if aiogram_data and isinstance(aiogram_data, dict):
+        link = aiogram_data.get("link", "")
+        date_text = aiogram_data.get("date", "")
+        location = aiogram_data.get("location", "")
+        logging.info(f"[DEBUG] Данные из aiogram state успешно извлечены")
+    
+    # Если данных нет в aiogram state, пробуем взять из Google Sheets
+    if (not link or not date_text or not location) and state_data and isinstance(state_data, dict):
+        link = state_data.get("link", "")
+        date_text = state_data.get("date", "")
+        location = state_data.get("location", "")
+        logging.info(f"[DEBUG] Данные из Google Sheets успешно извлечены")
+    
+    # Логируем окончательные данные перед отправкой
+    logging.info(f"[DEBUG] Итоговые данные для заявки: date_text={date_text}, location={location}, monument_name={monument_name}, link={link}")
 
     try:
+        # Отправляем заявку с извлеченными данными
         submission_id = submit_application(message.from_user, date_text, location, monument_name, link)
         
         if submission_id:
@@ -133,7 +193,7 @@ async def process_name(message: types.Message, state: FSMContext):
             save_user_state(user_id, "main_menu", None, msg.message_id)
             await state.finish()
 
-            # Отправляем уведомление администраторам с ПОЛНЫМИ данными
+            # Отправляем уведомление администраторам
             for admin_id in ADMIN_IDS:
                 try:
                     markup = InlineKeyboardMarkup()

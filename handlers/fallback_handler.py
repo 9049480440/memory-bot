@@ -40,11 +40,8 @@ async def handle_unknown(message: types.Message):
             markup.add(types.InlineKeyboardButton("📨 Подать заявку", callback_data="apply"))
             markup.add(types.InlineKeyboardButton("📌 О конкурсе", callback_data="info"))
             markup.add(types.InlineKeyboardButton("⭐️ Мои баллы", callback_data="scores"))
-            
-            await message.answer(
-                "Вы хотите подать заявку или задать вопрос?",
-                reply_markup=markup
-            )
+        await message.answer(answer, reply_markup=main_menu_markup(user_id), parse_mode='Markdown')    
+
 
         # Если это админ, показываем админ-панель
         if is_admin:

@@ -249,21 +249,22 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
     # Показываем статус отправки
     status_msg = await message.answer(f"⏳ Начинаем рассылку для {len(users)} пользователей...")
     
+    # Определяем тип контента и его форматирование
+    parse_mode = "HTML"  # Используем HTML по умолчанию, т.к. он обрабатывает больше типов форматирования
+    
     sent = 0
     errors = 0
     
     for recipient_id in users:
         try:
-            # Определяем parse_mode в зависимости от типа контента
-            parse_mode = "Markdown"
-            
             if message.photo:
                 await message.bot.send_photo(
                     recipient_id, 
                     message.photo[-1].file_id, 
                     caption=message.caption or "", 
                     reply_markup=main_menu_markup(user_id=recipient_id),
-                    parse_mode=parse_mode
+                    parse_mode=parse_mode,
+                    caption_entities=message.caption_entities  # Добавляем сущности форматирования
                 )
             elif message.video:
                 await message.bot.send_video(
@@ -271,7 +272,8 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
                     message.video.file_id, 
                     caption=message.caption or "", 
                     reply_markup=main_menu_markup(user_id=recipient_id),
-                    parse_mode=parse_mode
+                    parse_mode=parse_mode,
+                    caption_entities=message.caption_entities  # Добавляем сущности форматирования
                 )
             elif message.document:
                 await message.bot.send_document(
@@ -279,14 +281,16 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
                     message.document.file_id, 
                     caption=message.caption or "", 
                     reply_markup=main_menu_markup(user_id=recipient_id),
-                    parse_mode=parse_mode
+                    parse_mode=parse_mode,
+                    caption_entities=message.caption_entities  # Добавляем сущности форматирования
                 )
             elif message.text:
                 await message.bot.send_message(
                     recipient_id, 
                     message.text, 
                     reply_markup=main_menu_markup(user_id=recipient_id),
-                    parse_mode=parse_mode
+                    parse_mode=parse_mode,
+                    entities=message.entities  # Добавляем сущности форматирования
                 )
             sent += 1
             

@@ -80,8 +80,13 @@ async def handle_admin_panel(callback: types.CallbackQuery, state: FSMContext):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("🔙 Отменить рассылку", callback_data="cancel_admin_news"))
         await callback.message.edit_text(
-            "📢 Пришлите сообщение, которое хотите разослать участникам:",
-            reply_markup=markup
+            "📢 Пришлите сообщение, которое хотите разослать участникам:\n\n"
+            "📝 *Подсказка*: Вы можете использовать Markdown-разметку:\n"
+            "- `*жирный текст*` для **жирного текста**\n"
+            "- `_курсив_` для _курсива_\n"
+            "- [текст ссылки](https://example.com) для [ссылок](https://example.com)",
+            reply_markup=markup,
+            parse_mode="Markdown"
         )
         save_user_state(user_id, "admin_news", None, callback.message.message_id)
         await NewsState.waiting_for_news.set()
@@ -178,13 +183,25 @@ async def handle_reject(callback: types.CallbackQuery, state: FSMContext):
 async def receive_score(message: types.Message, state: FSMContext):
     """Обрабатывает ввод баллов для заявки"""
     user_id = message.from_user.id
+    
+    # Проверяем, что получен текстовый ввод
+    if not message.text:
+        await message.answer("Пожалуйста, введите число баллов текстом.")
+        return
+        
     score_text = message.text.strip()
 
+    # Проверяем, что введено число
     if not score_text.isdigit():
-        await message.answer("Пожалуйста, введите число.")
+        await message.answer("Пожалуйста, введите целое число баллов (например, 8).")
+        return
+    
+    # Проверяем диапазон баллов
+    score = int(score_text)
+    if score < 0 or score > 100:
+        await message.answer("Количество баллов должно быть от 0 до 100.")
         return
 
-    score = int(score_text)
     submission_id = pending_scores.get(user_id)
 
     if not submission_id:
@@ -207,7 +224,8 @@ async def receive_score(message: types.Message, state: FSMContext):
                 f"🎉 Ваша заявка подтверждена!\n"
                 f"Вам начислено {score} балл(ов).\n"
                 f"Поздравляем и желаем удачи — вы на пути к победе! 💪",
-                reply_markup=main_menu_markup(int(user_id_str))
+                reply_markup=main_menu_markup(int(user_id_str)),
+                parse_mode="Markdown"
             )
             logger.info(f"[INFO] Уведомление отправлено пользователю {user_id_str}")
         except Exception as e:
@@ -232,29 +250,64 @@ async def send_news_to_users(message: types.Message, state: FSMContext):
     status_msg = await message.answer(f"⏳ Начинаем рассылку для {len(users)} пользователей...")
     
     sent = 0
-    for user_id in users:
+    errors = 0
+    
+    for recipient_id in users:
         try:
+            # Определяем parse_mode в зависимости от типа контента
+            parse_mode = "Markdown"
+            
             if message.photo:
-                await message.bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption or "", reply_markup=main_menu_markup(user_id=user_id))
+                await message.bot.send_photo(
+                    recipient_id, 
+                    message.photo[-1].file_id, 
+                    caption=message.caption or "", 
+                    reply_markup=main_menu_markup(user_id=recipient_id),
+                    parse_mode=parse_mode
+                )
             elif message.video:
-                await message.bot.send_video(user_id, message.video.file_id, caption=message.caption or "", reply_markup=main_menu_markup(user_id=user_id))
+                await message.bot.send_video(
+                    recipient_id, 
+                    message.video.file_id, 
+                    caption=message.caption or "", 
+                    reply_markup=main_menu_markup(user_id=recipient_id),
+                    parse_mode=parse_mode
+                )
+            elif message.document:
+                await message.bot.send_document(
+                    recipient_id, 
+                    message.document.file_id, 
+                    caption=message.caption or "", 
+                    reply_markup=main_menu_markup(user_id=recipient_id),
+                    parse_mode=parse_mode
+                )
             elif message.text:
-                await message.bot.send_message(user_id, message.text, reply_markup=main_menu_markup(user_id=user_id))
+                await message.bot.send_message(
+                    recipient_id, 
+                    message.text, 
+                    reply_markup=main_menu_markup(user_id=recipient_id),
+                    parse_mode=parse_mode
+                )
             sent += 1
             
             # Обновляем статус каждые 10 отправок
             if sent % 10 == 0:
                 try:
                     await status_msg.edit_text(f"⏳ Отправлено {sent} из {len(users)} сообщений...")
-                except:
-                    pass
+                except Exception as e:
+                    logger.error(f"[ERROR] Не удалось обновить статус: {e}")
                     
             # Небольшая задержка, чтобы не превышать лимиты
             await asyncio.sleep(0.1)
         except Exception as e:
-            logger.error(f"[ERROR] Не удалось отправить рассылку пользователю {user_id}: {e}")
+            errors += 1
+            logger.error(f"[ERROR] Не удалось отправить рассылку пользователю {recipient_id}: {e}")
 
-    await message.answer(f"✅ Рассылка завершена. Отправлено {sent} пользователям.")
+    await message.answer(
+        f"✅ Рассылка завершена.\n"
+        f"✓ Успешно отправлено: {sent} пользователям\n"
+        f"✗ Ошибок при отправке: {errors}"
+    )
     msg = await message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
     save_user_state(user_id, "admin_panel", None, msg.message_id)
 
@@ -272,6 +325,10 @@ async def cancel_news(callback: types.CallbackQuery, state: FSMContext):
         pass
     save_user_state(user_id, "admin_panel", None, callback.message.message_id)
 
+async def handle_invalid_score_input(message: types.Message, state: FSMContext):
+    """Обрабатывает неправильный ввод при выставлении баллов"""
+    await message.answer("Пожалуйста, введите баллы числом. Например: 8")
+
 def register_admin_handlers(dp: Dispatcher):
     """Регистрирует обработчики для админ-панели"""
     dp.register_message_handler(admin_start, commands=["admin"], state="*")
@@ -280,5 +337,12 @@ def register_admin_handlers(dp: Dispatcher):
     ], state="*")
     dp.register_callback_query_handler(handle_approve, text_startswith="approve_", state="*")
     dp.register_callback_query_handler(handle_reject, text_startswith="reject_", state="*")
-    dp.register_message_handler(receive_score, state=ScoreState.waiting_for_score)
+    
+    # Обработчик для текстового ввода баллов
+    dp.register_message_handler(receive_score, state=ScoreState.waiting_for_score, content_types=types.ContentTypes.TEXT)
+    
+    # Обработчик для нетекстового ввода баллов
+    dp.register_message_handler(handle_invalid_score_input, state=ScoreState.waiting_for_score, content_types=types.ContentTypes.ANY)
+    
+    # Обработчик новостей
     dp.register_message_handler(send_news_to_users, content_types=types.ContentTypes.ANY, state=NewsState.waiting_for_news)

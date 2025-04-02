@@ -45,10 +45,17 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
         markup.add(types.InlineKeyboardButton("🔄 Начать новую заявку", callback_data="apply"))
         markup.add(types.InlineKeyboardButton("🔙 Вернуться в меню", callback_data="back_to_menu"))
 
-        await callback.message.edit_text(
-            "У вас есть незавершенная заявка. Хотите продолжить её заполнение или начать новую?",
-            reply_markup=markup
-        )
+        try:
+            await callback.message.edit_text(
+                "У вас есть незавершенная заявка. Хотите продолжить её заполнение или начать новую?",
+                reply_markup=markup
+            )
+        except Exception as e:
+            logger.error(f"Error editing message: {e}")
+            await callback.message.answer(
+                "У вас есть незавершенная заявка. Хотите продолжить её заполнение или начать новую?",
+                reply_markup=markup
+            )
         return
 
     if callback.data == "info":
@@ -78,8 +85,11 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
         except Exception as e:
             logger.error(f"Error updating message: {e}")
             await callback.message.answer(
-                "Произошла ошибка. Попробуйте снова через /menu"
+                text,
+                reply_markup=main_menu_markup(user_id),
+                parse_mode='Markdown'
             )
+            await callback.message.delete()
 
     elif callback.data == "apply":
         text = (
@@ -92,7 +102,13 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
             "4️⃣ Краткое описание (например: *памятник героям ВОВ в парке Победы*)\n\n"
             "Если всё готово — начинаем! ✨"
         )
-        await callback.message.edit_text(text, parse_mode="Markdown")
+        try:
+            await callback.message.edit_text(text, parse_mode="Markdown")
+        except Exception as e:
+            logger.error(f"Error editing message: {e}")
+            await callback.message.answer(text, parse_mode="Markdown")
+            await callback.message.delete()
+            
         await start_application(callback.message)
 
     elif callback.data == "continue_app":
@@ -105,44 +121,93 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 "- Не присылайте ссылку, которая уже участвовала в конкурсе ранее.\n\n"
                 "Спасибо за понимание!"
             )
-            await callback.message.edit_text(
-                text,
-                reply_markup=cancel_markup(),
-                parse_mode="Markdown"
-            )
+            try:
+                await callback.message.edit_text(
+                    text,
+                    reply_markup=cancel_markup(),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                await callback.message.answer(
+                    text,
+                    reply_markup=cancel_markup(),
+                    parse_mode="Markdown"
+                )
+                await callback.message.delete()
+                
             await ApplicationState.waiting_for_link.set()
 
         elif current_state == "application_step_2":
-            await callback.message.edit_text(
-                "Спасибо! Теперь введите дату съёмки (ДД.ММ.ГГГГ):",
-                reply_markup=cancel_markup()
-            )
+            try:
+                await callback.message.edit_text(
+                    "Спасибо! Теперь введите дату съёмки (ДД.ММ.ГГГГ):",
+                    reply_markup=cancel_markup()
+                )
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                await callback.message.answer(
+                    "Спасибо! Теперь введите дату съёмки (ДД.ММ.ГГГГ):",
+                    reply_markup=cancel_markup()
+                )
+                await callback.message.delete()
+                
             await ApplicationState.waiting_for_date.set()
-
+            
         elif current_state == "application_step_3":
-            await callback.message.edit_text(
-                "Отлично! Теперь укажите, где была сделана съёмка — достаточно написать название населённого пункта, например: *Снежинск*.",
-                reply_markup=cancel_markup(),
-                parse_mode="Markdown"
-            )
+            try:
+                await callback.message.edit_text(
+                    "Отлично! Теперь укажите, где была сделана съёмка — достаточно написать название населённого пункта, например: *Снежинск*.",
+                    reply_markup=cancel_markup(),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                await callback.message.answer(
+                    "Отлично! Теперь укажите, где была сделана съёмка — достаточно написать название населённого пункта, например: *Снежинск*.",
+                    reply_markup=cancel_markup(),
+                    parse_mode="Markdown"
+                )
+                await callback.message.delete()
+                
             await ApplicationState.waiting_for_location.set()
-
+            
         elif current_state == "application_step_4":
-            await callback.message.edit_text(
-                "Пожалуйста, напишите краткое название объекта — например: *мемориал Славы*, *памятник героям ВОВ*, *доска на здании школы №125*.\n\n"
-                "Если объект не имеет официального названия, просто опишите его коротко.",
-                reply_markup=cancel_markup(),
-                parse_mode="Markdown"
-            )
+            try:
+                await callback.message.edit_text(
+                    "Пожалуйста, напишите краткое название объекта — например: *мемориал Славы*, *памятник героям ВОВ*, *доска на здании школы №125*.\n\n"
+                    "Если объект не имеет официального названия, просто опишите его коротко.",
+                    reply_markup=cancel_markup(),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                await callback.message.answer(
+                    "Пожалуйста, напишите краткое название объекта — например: *мемориал Славы*, *памятник героям ВОВ*, *доска на здании школы №125*.\n\n"
+                    "Если объект не имеет официального названия, просто опишите его коротко.",
+                    reply_markup=cancel_markup(),
+                    parse_mode="Markdown"
+                )
+                await callback.message.delete()
+                
             await ApplicationState.waiting_for_name.set()
 
     elif callback.data == "back_to_menu":
         clear_user_state(user_id)
-        await callback.message.edit_text(
-            "👇 Главное меню:",
-            reply_markup=main_menu_markup(user_id)
-        )
-        save_user_state(user_id, "main_menu", None, callback.message.message_id)
+        try:
+            await callback.message.edit_text(
+                "👇 Главное меню:",
+                reply_markup=main_menu_markup(user_id)
+            )
+            save_user_state(user_id, "main_menu", None, callback.message.message_id)
+        except Exception as e:
+            logger.error(f"Error editing message: {e}")
+            msg = await callback.message.answer(
+                "👇 Главное меню:",
+                reply_markup=main_menu_markup(user_id)
+            )
+            save_user_state(user_id, "main_menu", None, msg.message_id)
+            await callback.message.delete()
 
     elif callback.data == "scores":
         try:
@@ -165,12 +230,22 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     "Наберите *80 баллов*, чтобы участвовать в розыгрыше призов! 🎁"
                 )
 
-            await callback.message.edit_text(
-                text,
-                reply_markup=main_menu_markup(user_id),
-                parse_mode="Markdown"
-            )
-            save_user_state(user_id, "main_menu", None, callback.message.message_id)
+            try:
+                await callback.message.edit_text(
+                    text,
+                    reply_markup=main_menu_markup(user_id),
+                    parse_mode="Markdown"
+                )
+                save_user_state(user_id, "main_menu", None, callback.message.message_id)
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                msg = await callback.message.answer(
+                    text,
+                    reply_markup=main_menu_markup(user_id),
+                    parse_mode="Markdown"
+                )
+                save_user_state(user_id, "main_menu", None, msg.message_id)
+                await callback.message.delete()
         except Exception as e:
             logger.error(f"Error getting user scores: {e}")
             await callback.message.answer(
@@ -179,15 +254,48 @@ async def handle_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
     elif callback.data == "admin_panel":
         if is_admin(user_id):
-            await callback.message.edit_text("🛡 Админ-панель:", reply_markup=admin_menu_markup())
-            save_user_state(user_id, "admin_panel", None, callback.message.message_id)
+            try:
+                await callback.message.edit_text("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+                save_user_state(user_id, "admin_panel", None, callback.message.message_id)
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                msg = await callback.message.answer("🛡 Админ-панель:", reply_markup=admin_menu_markup())
+                save_user_state(user_id, "admin_panel", None, msg.message_id)
+                await callback.message.delete()
         else:
             await callback.message.answer("❌ У вас нет прав доступа.")
 
-# Регистрация
+# Обработчики для медиафайлов
+async def handle_media_in_main(message: types.Message):
+    """Обрабатывает медиафайлы, когда пользователь в главном меню"""
+    user_id = message.from_user.id
+    
+    media_type = "фото" if message.photo else "видео" if message.video else "аудио" if message.audio else "файл"
+    
+    await message.answer(
+        f"Я получил ваш {media_type}, но не могу его обработать напрямую.\n\n"
+        f"Если вы хотите подать заявку, пожалуйста, опубликуйте этот {media_type} в соцсетях "
+        f"с хештегом #ОтПамятникаКПамяти, затем пришлите мне ссылку на публикацию через кнопку 'Подать заявку'.",
+        reply_markup=main_menu_markup(user_id=user_id)
+    )
 
+# Регистрация
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(start, commands=["start"], state="*")
     dp.register_callback_query_handler(handle_main_menu, text=[
         "info", "apply", "scores", "admin_panel", "continue_app", "back_to_menu"
     ], state="*")
+    
+    # Обработчик для медиафайлов
+    dp.register_message_handler(
+        handle_media_in_main,
+        content_types=[
+            types.ContentType.PHOTO, 
+            types.ContentType.VIDEO, 
+            types.ContentType.AUDIO, 
+            types.ContentType.DOCUMENT,
+            types.ContentType.VOICE,
+            types.ContentType.STICKER
+        ],
+        state=None
+    )

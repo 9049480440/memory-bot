@@ -95,10 +95,38 @@ async def ask_gpt(message_or_text):
     except Exception as e:
         logging.error(f"GPT ERROR: {e}")
         if not isinstance(message_or_text, str):
-            await message_or_text.answer("Извините, я пока не могу ответить. Попробуйте позже.")
+            await message_or_text.answer(
+                "Извините, я пока не могу ответить. Попробуйте позже или обратитесь к организаторам: @isilgan", 
+                parse_mode='Markdown'
+            )
         return "Извините, я пока не могу ответить. Попробуйте позже."
 
+# Обработчик для медиафайлов, отправленных в режиме вопроса
+async def handle_media_question(message: types.Message):
+    """Обрабатывает медиафайлы, отправленные в режиме вопроса к GPT"""
+    media_type = "фото" if message.photo else "видео" if message.video else "аудио" if message.audio else "файл"
+    
+    await message.answer(
+        f"К сожалению, я не могу анализировать {media_type} напрямую. Если у вас есть вопрос о конкурсе или правилах, "
+        f"пожалуйста, напишите его текстом, и я с радостью отвечу!",
+        parse_mode='Markdown'
+    )
+
 def register_gpt_handler(dp: Dispatcher):
-    @dp.message_handler(lambda message: "?" in message.text)
+    @dp.message_handler(lambda message: "?" in message.text, content_types=types.ContentTypes.TEXT)
     async def handle_gpt_question(message: types.Message):
         await ask_gpt(message)
+        
+    # Обработчик для медиафайлов в режиме вопроса
+    @dp.message_handler(
+        content_types=[
+            types.ContentType.PHOTO, 
+            types.ContentType.VIDEO, 
+            types.ContentType.AUDIO, 
+            types.ContentType.DOCUMENT,
+            types.ContentType.VOICE,
+            types.ContentType.STICKER
+        ]
+    )
+    async def handle_media_in_gpt(message: types.Message):
+        await handle_media_question(message)

@@ -58,11 +58,8 @@ async def start_application(message: types.Message):
 
 # Обработка неправильного типа контента (медиафайлы) во время подачи заявки
 async def handle_invalid_content(message: types.Message, state: FSMContext):
-    """Обрабатывает медиафайлы, отправленные в процессе подачи заявки"""
     current_state = await state.get_state()
     user_id = message.from_user.id
-    
-    # В зависимости от текущего шага, отправляем соответствующее сообщение
     if current_state == "ApplicationState:waiting_for_link":
         await message.answer(
             "⚠️ Пожалуйста, пришлите именно ссылку на публикацию, а не медиафайл.\n"
@@ -85,7 +82,6 @@ async def handle_invalid_content(message: types.Message, state: FSMContext):
             reply_markup=cancel_markup()
         )
     else:
-        # Если мы не в процессе заполнения анкеты, перенаправляем в общий обработчик
         await message.answer(
             "🤔 Я не совсем понимаю, что мне делать с этим файлом. "
             "Пожалуйста, используйте текстовые команды или кнопки меню.",
@@ -141,8 +137,10 @@ async def process_link(message: types.Message, state: FSMContext):
     # Сохраняем состояние
     save_user_state(user_id, "application_step_2", {"link": text})
     msg = await message.answer(
-        "Спасибо! Теперь введите дату съёмки (ДД.ММ.ГГГГ):", 
-        reply_markup=cancel_markup()
+        "🗓 Спасибо! Теперь введите дату съёмки в формате *ДД.ММ.ГГГГ*, например: `15.04.2025`.\n\n"
+        "📌 Убедитесь, что съёмка была не раньше 1 апреля 2025 года и не в будущем 😊",
+        reply_markup=cancel_markup(),
+        parse_mode="Markdown"
     )
     save_user_state(user_id, "application_step_2", {"link": text}, msg.message_id)
     await ApplicationState.waiting_for_date.set()
@@ -214,7 +212,7 @@ async def process_date(message: types.Message, state: FSMContext):
     # Сохраняем состояние в Google Sheets, обеспечивая синхронизацию данных
     save_user_state(user_id, "application_step_3", full_data)
     msg = await message.answer(
-        "Отлично! Теперь введите место съёмки (город или населенный пункт):", 
+        "📍 Отлично! Теперь напишите, где была сделана съёмка — достаточно указать *город или населённый пункт*, например: `Снежинск`.", 
         reply_markup=cancel_markup()
     )
     save_user_state(user_id, "application_step_3", full_data, msg.message_id)
@@ -257,8 +255,11 @@ async def process_location(message: types.Message, state: FSMContext):
     # Сохраняем состояние в Google Sheets, обеспечивая синхронизацию данных
     save_user_state(user_id, "application_step_4", full_data)
     msg = await message.answer(
-        "Теперь введите название памятника или мероприятия:", 
-        reply_markup=cancel_markup()
+        "🏛 И последний шаг — пожалуйста, напишите краткое название объекта:\n\n"
+        "Например: *мемориал Славы*, *памятник героям ВОВ*, *доска на здании школы №125*.\n\n"
+        "Если у объекта нет названия — просто опишите его коротко.",
+        reply_markup=cancel_markup(),
+        parse_mode="Markdown"
     )
     save_user_state(user_id, "application_step_4", full_data, msg.message_id)
     await ApplicationState.waiting_for_name.set()

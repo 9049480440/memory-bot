@@ -257,22 +257,37 @@ def get_inactive_users(days=21):
     return inactive
 
 async def send_reminders_to_inactive(bot):
-    """Отправляет напоминания неактивным пользователям"""
+    """Отправляет напоминания неактивным пользователям каждые 21 день, до 24 ноября 2025"""
+    # Проверка на конец конкурса - 24 ноября 2025
+    now = datetime.datetime.now()
+    end_date = datetime.datetime(2025, 11, 24)
+
+    if now > end_date:
+        logger.info("[INFO] Конкурс завершен (после 24.11.2025), напоминания больше не отправляются")
+        return
+
+    # Получаем неактивных пользователей
     inactive_users = get_inactive_users(days=21)
+
+    # Отправляем напоминания только тем, у кого количество дней с момента последней заявки
+    # кратно 21 (21, 42, 63, 84, ...)
     for user in inactive_users:
         user_id = user["user_id"]
         username = user["username"]
         days_since = user["days_since"]
-        try:
-            await bot.send_message(
-                user_id,
-                f"Привет, {username or 'участник'}! Ты не подавал заявки уже {days_since} дней. "
-                "Вернись в конкурс 'Эстафета Победы' и заработай баллы! Подай заявку через /start.",
-                reply_markup=main_menu_markup(user_id=user_id)
-            )
-            logger.info(f"[INFO] Напоминание отправлено {user_id}")
-        except Exception as e:
-            logger.error(f"[ERROR] Не удалось отправить напоминание {user_id}: {e}")
+
+        # Проверяем, что дни с последней активности кратны 21
+        if days_since % 21 == 0:
+            try:
+                await bot.send_message(
+                    user_id,
+                    f"Привет, {username or 'участник'}! Ты не подавал заявки уже {days_since} дней. "
+                    "Вернись в конкурс 'Эстафета Победы' и заработай баллы! Подай заявку через /start.",
+                    reply_markup=main_menu_markup(user_id=user_id)
+                )
+                logger.info(f"[INFO] Напоминание отправлено {user_id} (неактивен {days_since} дней)")
+            except Exception as e:
+                logger.error(f"[ERROR] Не удалось отправить напоминание {user_id}: {e}")
 
 def get_submission_stats():
     """Получает статистику по заявкам"""

@@ -195,13 +195,19 @@ async def check_inactive_users():
     while True:
         try:
             now = datetime.datetime.now()
+            # Проверяем, не закончился ли конкурс
+            end_date = datetime.datetime(2025, 11, 24)
+            if now > end_date:
+                logger.info("Конкурс завершен (после 24.11.2025), проверка неактивных пользователей остановлена")
+                return  # Завершаем задачу полностью после окончания конкурса
+
             if now.hour == 10 and now.minute < 5:  # Расширяем окно запуска до 5 минут
                 try:
                     await send_reminders_to_inactive(bot)
-                    logger.info("Напоминания неактивным участникам отправлены")
+                    logger.info("Проверка неактивных участников выполнена (напоминания отправляются раз в 21 день)")
                 except Exception as e:
                     logger.error(f"Ошибка при отправке напоминаний: {e}")
-                
+
                 # Ждем до завтра
                 await asyncio.sleep(24 * 60 * 60 - 300)  # -5 минут чтобы не пропустить окно
             else:
